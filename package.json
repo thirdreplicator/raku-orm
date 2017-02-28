@@ -1,7 +1,7 @@
 {
   "name": "raku-orm",
   "version": "1.0.0",
-  "description": "A simple get/put/del interface to Riak",
+  "description": "A basic ORM for Riak",
   "main": "index.js",
   "scripts": {
     "test": "mocha --compilers js:babel-core/register --require babel-polyfill --recursive test/",
@@ -12,7 +12,7 @@
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/thirdreplicator/raku/issues"
+    "url": "https://github.com/thirdreplicator/raku-orm/issues"
   },
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
     "raku-orm",
     "simple",
     "easy",
-    "crud"
+    "orm"
   ],
   "homepage": "https://github.com/thirdreplicator/raku-orm#readme",
   "files": [
