@@ -375,57 +375,235 @@ describe('has_many relationship', () => {
 
 	describe('user.posts(...<ATTRIBUTES>, [LIMIT, [OFFSET]])', () => {
 
-		//it('should return a list of posts instances', () => {
-		//	let user = new User()
-		//	user.first_name = 'David'
+		it('should return a list of posts instances', () => {
+			let user = new User()
+			user.first_name = 'David'
 
-		//	let post1 = new Post()
-		//	post1.title = 'title1'
+			let post1 = new Post()
+			post1.title = 'title1'
 
-		//	let post2 = new Post()
-		//	post2.title = 'title2'
-		// 
-		//	return Promise.all([post1.save(), post2.save()])
-		//		.then(([p1, p2]) => {
-    //      user.post_ids = [p1.id, p2.id]
-    //      return user.save()
-    //    })
-    //    .then(u => u.posts())
-    //    .then(posts => expect(post[0].constructor.name).to.eql('Post'))
-		//	
-		//})
-//
-//		it('user.posts() should each instance should have the id property set to a number in the same order as user.post_ids', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('user.posts() should not load any attributes except for the id', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('user.posts("title") should load the title property from the database', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('user.posts("title", "views") should load the title and views properties from the database', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('user.posts("title", "views") should not load more than 10 records by default.', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('user.posts("title", "views", 5) should not load more than 5 records by default.', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('user.posts("views", "title", 15) should not load more than 15 records by default.', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('user.posts("title", "views", 5, OFFSET) should load 5 records starting from the (OFFSET + 1)th record', () => {
-//			assert.fail('To be implemented.')
-//		})
+			let post2 = new Post()
+			post2.title = 'title2'
+		 
+			return Promise.all([post1.save(), post2.save()])
+				.then(([p1, p2]) => {
+					expect([post1.id, post2.id]).to.eql([p1.id, p2.id])
+					user.post_ids = [p1.id, p2.id]
+					return user.save()
+				})
+				.then(u => u.posts())
+				.then(posts => {
+					expect(posts[0].constructor.name).to.eql('Post')
+					expect(posts[1].constructor.name).to.eql('Post')
+				})
+			
+		})
+
+		it('user.posts() should each instance should have the id property set to a number in the same order as user.post_ids', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			let post1 = new Post()
+			post1.title = 'title1'
+
+			let post2 = new Post()
+			post2.title = 'title2'
+		 
+			return Promise.all([post1.save(), post2.save()])
+				.then(([p1, p2]) => {
+					user.post_ids = [p1.id, p2.id]
+					return user.save()
+				})
+				.then(u => u.posts())
+				.then(posts => {
+					expect(posts[0].id).to.eql(post1.id)
+					expect(posts[1].id).to.eql(post2.id)
+				})
+		})
+
+		it('user.posts() (with no arguments) should not load any attributes except for the id', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			let post1 = new Post()
+			post1.title = 'title1'
+
+			let post2 = new Post()
+			post2.title = 'title2'
+		 
+			return Promise.all([post1.save(), post2.save()])
+				.then(([p1, p2]) => {
+					user.post_ids = [p1.id, p2.id]
+					return user.save()
+				})
+				.then(u => u.posts())
+				.then(posts => {
+					expect(posts[0].title).to.eql(null)
+					expect(posts[0].body).to.eql(null)
+					expect(posts[0].views).to.eql(0)
+					expect(posts[1].title).to.eql(null)
+					expect(posts[1].body).to.eql(null)
+					expect(posts[1].views).to.eql(0)
+				})
+		})
+
+		it('user.posts("title") should load the title property from the database', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			let post1 = new Post()
+			post1.title = 'title1'
+
+			let post2 = new Post()
+			post2.title = 'title2'
+		 
+			return Promise.all([post1.save(), post2.save()])
+				.then(([p1, p2]) => {
+					user.post_ids = [p1.id, p2.id]
+					return user.save()
+				})
+				.then(u => u.posts('title'))
+				.then(posts => {
+					expect(posts[0].title).to.eql('title1')
+					expect(posts[0].body).to.eql(null)
+					expect(posts[0].views).to.eql(0)
+					expect(posts[1].title).to.eql('title2')
+					expect(posts[1].body).to.eql(null)
+					expect(posts[1].views).to.eql(0)
+				})
+		})
+
+		it('user.posts("title", "views") should load the title and views properties from the database', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			let post1 = new Post()
+			post1.title = 'title1'
+			post1.views = 828
+
+			let post2 = new Post()
+			post2.title = 'title2'
+			post2.views = 239		 
+
+			return Promise.all([post1.save(), post2.save()])
+				.then(([p1, p2]) => {
+					user.post_ids = [p1.id, p2.id]
+					return user.save()
+				})
+				.then(u => u.posts('title', 'views'))
+				.then(posts => {
+					expect(posts[0].title).to.eql('title1')
+					expect(posts[0].body).to.eql(null)
+					expect(posts[0].views).to.eql(828)
+					expect(posts[1].title).to.eql('title2')
+					expect(posts[1].body).to.eql(null)
+					expect(posts[1].views).to.eql(239)
+				})
+		})
+
+		it('user.posts("title", "views") should not load more than 10 records by default.', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			const N = 15
+			const make_post = (id) => {
+				let p = new Post(id)
+				p.title = 'title_' + id
+				p.views = 1000 + id
+				return p
+			}
+			let posts = Array.from(new Array(N), (v, i) => i)
+									 .map(make_post)
+
+			return Promise.all(posts.map(p => p.save()))
+				.then(psts => {
+					user.post_ids = psts.map(p => p.id)
+					return user.save()
+				})
+				.then(u => u.posts('title', 'views'))
+				.then(posts => expect(posts.length).to.eql(10))
+		})
+
+		it('user.posts("title", "views", 5) should not load more than 5 records by default.', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			const N = 15
+			const make_post = (i) => {
+				let p = new Post(100+i)
+				p.title = 'title_' + i
+				p.views = 1000 + i
+				return p
+			}
+			let posts = Array.from(new Array(N), (v, i) => i)
+									 .map(make_post)
+
+			return Promise.all(posts.map(p => p.save()))
+				.then(psts => {
+					user.post_ids = psts.map(p => p.id)
+					return user.save()
+				})
+				.then(u => u.posts('title', 'views', 5))
+				.then(posts => expect(posts.length).to.eql(5))
+		})
+
+		it('user.posts("views", "title", 20) should not load more than the total number of records currently in the database(15).', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			const N = 15
+			const make_post = (i) => {
+				let p = new Post(100+i)
+				p.title = 'title_' + i
+				p.views = 1000 + i
+				return p
+			}
+			let posts = Array.from(new Array(N), (v, i) => i)
+									 .map(make_post)
+
+			return Promise.all(posts.map(p => p.save()))
+				.then(psts => {
+					user.post_ids = psts.map(p => p.id)
+					return user.save()
+				})
+				.then(u => u.posts('title', 'views', 20))
+				.then(posts => expect(posts.length).to.eql(15))
+		})
+
+		it('user.posts("title", "views", 5, 3) should load 5 records skipping the first 3', () => {
+			let user = new User()
+			user.first_name = 'David'
+
+			const N = 15
+			const make_post = (i) => {
+				let p = new Post(100+i)
+				p.title = 'title_' + i
+				p.views = 1000 + i
+				return p
+			}
+			let posts = Array.from(new Array(N), (v, i) => i)
+									 .map(make_post)
+
+			return Promise.all(posts.map(p => p.save()))
+				.then(psts => {
+					user.post_ids = psts.map(p => p.id)
+					return user.save()
+				})
+				.then(u => u.posts('title', 'views', 5, 3))
+				.then(posts => {
+					expect(posts.length).to.eql(5)
+					expect(posts[0].id).to.eql(103)
+					expect(posts[1].id).to.eql(104)
+					expect(posts[2].id).to.eql(105)
+					expect(posts[3].id).to.eql(106)
+					expect(posts[4].id).to.eql(107)
+					expect(posts[0].title).to.eql('title_' + 3)
+					expect(posts[1].title).to.eql('title_' + 4)
+					expect(posts[2].title).to.eql('title_' + 5)
+					expect(posts[3].title).to.eql('title_' + 6)
+					expect(posts[4].title).to.eql('title_' + 7)
+				})
+		})
 	}) // describe user.posts()
 }) // describe has_many
 
@@ -440,11 +618,11 @@ describe('has_many relationship', () => {
 //		})
 //
 //		it('should be savable to disk', () => {
-//			assert.fail('To be implemented.')
+//			asserttitleail('To be implemented.')
 //		})
-//	}) // describe post.author_id
+//	}) // desctitlebe post.author_id
 //
-//	describe('post.author = user', () => {
+//	describe('titlest.author = user', () => {
 //		it('should change the post.author_id value in memory', () => {
 //			assert.fail('To be implemented.')
 //		})

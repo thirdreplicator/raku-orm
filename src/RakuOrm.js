@@ -131,20 +131,10 @@ class RakuOrm {
 					}
 				)
 			} else if (key == 'has_many') {
-			/*
-				 TODO:
-
-				 In the case of deletion of a possessed instance (right side of has_many relationship),
-					we need to observe and update the foreign keys that refer to the deleted instance.
-					So, let's store this observer info in e.g.
-
-						 Post.observed_keys = { User: ['post_ids', 'favorite_article_id'] } // in-memory
-						 post.observed_ids = { User: { 42: true, 537: true } } // on disk
-			*/
 				if (klass.observed_keys == undefined) { klass.observed_keys = {} }
 				let relationships = schema[key]
 				if (Array.isArray(relationships)) {
-					relationships.forEach(obj => {
+						relationships.forEach(obj => {
 						// A has_many B
 						obj.A = klass.name
 						obj.B = obj.model
@@ -153,27 +143,41 @@ class RakuOrm {
 						this.track(klass, attr, type)
 						this.getClass(obj.model).observe(klass, attr)
 						Object.defineProperty(klass.prototype, attr,
-							{
-								get: function() {
+							 {
+								 get: function() {
 										return this.raw_get.call(this, attr)
 									},
-								set: function(x) {
+								 set: function(x) {
 									this.dirty[attr] = x
 									this.raw_set.call(this, attr, x)
-								}
-							}
-						)
+								 }
+							 }
+						 ) // Object.defineProperty
+
+             // Define the has_many method for loading e.g. user.posts()
+						 klass.prototype[obj.method] = function(...args) {
+              let N = 10, OFFSET = 0
+              let attr_args = args
+              if (typeof args[args.length - 1] == 'number') {
+                if (typeof args[args.length - 2] == 'number') {
+									N = args[args.length - 2]
+									OFFSET = args[args.length - 1]
+									attr_args = args.slice(0, args.length - 2)
+                } else {
+									N = args[args.length - 1]
+									attr_args = args.slice(0, args.length - 1)
+                }
+              }
+							let model = RakuOrm.name2model(obj.model)
+							let fks = this.raw_get(attr) || []
+              fks = fks.slice(OFFSET, OFFSET + N)
+							return Promise.all(fks.map(id => (new model(id)).load(...attr_args)))
+						 }
 					})
 				}
 			} // else if
 		} // for
 	} // init
-
-	static attr2model(attr) {
-		if (attr == 'post_ids') {
-			return 'Post'
-		}
-	}
 
 	hm_attr2model_name(attr) {
 		let model = null
@@ -274,7 +278,7 @@ class RakuOrm {
 	delete_props() {
 		let that = this
 		let delete_promises = []
-    let remove_backlinks = []
+		let remove_backlinks = []
 		let key, model_A, attributes
 		this.constructor.observed_models().forEach(model_A_name => {
 			model_A = RakuOrm.classes[model_A_name]
@@ -302,7 +306,7 @@ class RakuOrm {
 		})
 
 		return Promise.all(delete_promises)
-      .then(() => Promise.all(remove_backlinks))
+			.then(() => Promise.all(remove_backlinks))
 	}
 
 	delete() {
