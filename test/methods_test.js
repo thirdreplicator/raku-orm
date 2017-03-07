@@ -13,15 +13,10 @@ User.schema = {
 	email: 'String',
 	password: 'String',
 	has_many: [
-			{ method: 'posts',
-				model: 'Post',
+			{ model: 'Post',
+				method: 'posts',
 				key: 'post_ids'}
 		],
-	habtm: [
-			{ method: 'followers',
-				model: 'User',
-				join: 'followers' }
-		]
 }
 
 class Post extends RakuOrm { }
@@ -31,10 +26,10 @@ Post.schema = {
 	body: 'String',
 	views: 'Integer',
 	belongs_to: [
-			{ method: 'author',
-				key: 'author_id',
-				model: 'User',
-				observed_keys: 'post_ids' }
+			{ model: 'User',
+				method: 'author',
+				inverse_of: 'posts'
+				}
 		]
 }
 
@@ -172,14 +167,20 @@ describe('instance of <Class> < RakuOrm', () => {
 				.then(() => expect(user.id).to.eql(42) )
 		})
 
-	 it('ids should not overlap even in conditions of high contention', () => {
-		 let N = 10
+	 it('ids should not overlap as long as you wait for the promise to return', () => {
+		 let N = 30
 		 let users = Array.from(new Array(N), (v, i) => i)
 								 .map(() => new User())
 		 return raku.cset('User:last_id', 0)
-			 .then(() => Promise.all(users.map(u => u.save())))
-			 .then(values => {
-				 const user_ids = new Set(values.map(u => u.id))
+			 .then(() => {
+					let p = Promise.resolve(1)
+					users.forEach(u => {
+						p = p.then(() => u.save())
+					})
+					return p
+			 })
+			 .then(() => {
+				 const user_ids = new Set(users.map(u => u.id))
 				 expect(user_ids.size).to.eql(N)
 			 })
 	 })
