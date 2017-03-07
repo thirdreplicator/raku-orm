@@ -2,7 +2,7 @@
   "name": "raku-orm",
   "version": "1.0.0",
   "description": "A basic ORM for Riak",
-  "main": "index.js",
+  "main": "dist/RakuOrm.js",
   "scripts": {
     "test": "mocha --compilers js:babel-core/register --require babel-polyfill --recursive test/",
     "watch": "mocha -w --compilers js:babel-core/register --require babel-polyfill --recursive test/methods_test.js",
