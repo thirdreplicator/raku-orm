@@ -52,7 +52,7 @@ describe('Key generation for instances', () => {
       let post = new Post()
       post.id = 500
 
-      let key = post.has_many_back_link_key('User', 'post_ids')
+      let key = post.has_many_backlink_key('User', 'post_ids')
       expect(key).to.eql('Post#500:User:post_ids')
     })
   })

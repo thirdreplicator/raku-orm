@@ -36,9 +36,8 @@ class RakuOrm {
 	constructor(id) {
 		// Keep a list of modified properties here.
 		this.dirty = {}
-		if (this.constructor.props == undefined) return
 		let that = this
-		this.constructor.props.forEach(attr => {
+		this.constructor.props && this.constructor.props.forEach(attr => {
 			let type = that.constructor.prop_types[attr]
 			that.set(attr, that.constructor.initial_value[type])
 		})
@@ -106,6 +105,8 @@ class RakuOrm {
 
 	// Create getter and setter functions from the schema.
 	static init(klass) {
+		if (klass.props == undefined) { klass.props = [] }
+		if (klass.prop_types == undefined) { klass.prop_types = {} }
 		RakuOrm.storeClass(klass)
 		let schema = klass.schema
 		schema.id = 'ID'
@@ -225,6 +226,7 @@ class RakuOrm {
 	}
 
 	save() {
+    let that = this
 		let promise = Promise.resolve(this)
 		// If new instance.
 		if (this.id == null) {
@@ -243,15 +245,15 @@ class RakuOrm {
 				let dirty_keys = Object.keys(this.dirty)
 					.filter(key => key != 'id' && this.dirty[key] != null)
 				let promises = dirty_keys.map(attr => {
-						let p1 = this.save_prop(attr)
+						let p1 = that.save_prop(attr)
 						let p2 = Promise.resolve(this)
-						if ('HasMany' == this.constructor.prop_types[attr]) {
-							p2 = this.save_backlink(attr)
+						if ('HasMany' == that.constructor.prop_types[attr]) {
+							p2 = that.save_backlink(attr)
 						}
 						return Promise.all([p1, p2])
 					})
 				return Promise.all(promises)
-					.then(() => this)
+					.then(() => that)
 			})
 	}
 
@@ -337,7 +339,8 @@ class RakuOrm {
 	}
 
 	load(...attrs) {
-		return Promise.all(attrs.map(attr => {
+    const not_id = s => s != 'id'
+		return Promise.all(attrs.filter(not_id).map(attr => {
 				let type = this.constructor.prop_types[attr]
 				let get_fun = this.constructor.get_fun[type]
 				return get_fun.call(raku, this.attr_key(attr))

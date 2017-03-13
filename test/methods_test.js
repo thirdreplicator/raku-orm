@@ -89,6 +89,12 @@ describe('instance of <Class> < RakuOrm', () => {
 				.then(() => user.load('first_name'))
 				.then(() => expect(user.first_name).to.eql('Roger'))
 		})
+
+    it('should not overwrite the id from the database value(0)', () => {
+			let user = new User(501)
+			return user.load('id')
+				.then(() => expect(user.id).to.eql(501))
+    })
 	})
 
 	describe('save()', () => {
@@ -115,13 +121,34 @@ describe('instance of <Class> < RakuOrm', () => {
 				})
 		})
 
+    it('should save/load a single model with no dependencies', () => {
+      class Person extends RakuOrm { }
+      Person.schema = {
+        pname: 'String'
+      }
+      RakuOrm.init(Person)
+
+      let person = new Person()
+      person.pname = "David"
+      return person.save()
+        .then(() => {
+          expect(person.pname).to.eql('David')
+          expect(person.id > 0).to.be.true
+        })
+        .then(() => Person.load(person.id, 'pname'))
+        .then(p2 => {
+					expect(p2.pname).to.eql('David')
+            expect(p2.id).to.eql(person.id)
+				})
+    })
+
 		it('should save the attribute to the generated user id during a call to save()', () => {
 			// reset user id to 100
 			let user = new User()
 			return Promise.all([
-					raku.cset('User:last_id', 100),
-					raku.del('User#101:first_name'),
-					raku.del('User#101:last_name')])
+					raku.cset('User:last_id', 1000),
+					raku.del('User#1001:first_name'),
+					raku.del('User#1001:last_name')])
 				.then(() => {
 						expect(user.id).to.eql(null)
 						user.first_name = 'David'
@@ -130,16 +157,16 @@ describe('instance of <Class> < RakuOrm', () => {
 					})
 				.then(user => {
 					// in-memory version
-					expect(user.id).to.eql(101)
+					expect(user.id).to.eql(1001)
 					expect(user.first_name).to.eql('David')
 					expect(user.last_name).to.eql('Beckwith')
 				})
-				.then(() => User.load(101, 'first_name', 'last_name'))
-				.then(user101 => {
+				.then(() => User.load(1001, 'first_name', 'last_name'))
+				.then(user1001 => {
 					// on-disk version
-					expect(user101.id).to.eql(101)
-					expect(user101.first_name).to.eql('David')
-					expect(user101.last_name).to.eql('Beckwith')
+					expect(user1001.id).to.eql(1001)
+					expect(user1001.first_name).to.eql('David')
+					expect(user1001.last_name).to.eql('Beckwith')
 				})
 		})
 
