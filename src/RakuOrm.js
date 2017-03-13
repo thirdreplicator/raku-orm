@@ -68,6 +68,10 @@ class RakuOrm {
 		return Object.getOwnPropertyDescriptor(this.constructor.prototype, k).get.call(this)
 	}
 
+  static lastId() {
+    return raku.cget(this.last_id_key())
+  }
+
 	static track(klass, attr, type) {
 		if (klass.props == undefined) { klass.props = [] }
 		if (klass.prop_types == undefined) { klass.prop_types = {} }

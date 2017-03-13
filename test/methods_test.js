@@ -95,6 +95,11 @@ describe('instance of <Class> < RakuOrm', () => {
 			return user.load('id')
 				.then(() => expect(user.id).to.eql(501))
     })
+
+    it('static User.load(id, "id") should also not overwrite the id from the database value(0)', () => {
+			return User.load(501, 'id')
+				.then(user => expect(user.id).to.eql(501))
+    })
 	})
 
 	describe('save()', () => {
@@ -303,9 +308,19 @@ describe('counter (integer) attributes', () => {
 
 describe('RakuOrm static methods', () => {
 	describe('RakuOrm.getClass()', () => {
-		expect(RakuOrm.getClass('User')).to.eql(User)
-		expect(RakuOrm.getClass('Post')).to.eql(Post)
+    it('should be able to get a reference to the actual class from a string.', () => {
+			expect(RakuOrm.getClass('User')).to.eql(User)
+			expect(RakuOrm.getClass('Post')).to.eql(Post)
+    })
 	})
+
+	describe('lastId()', () => {
+    it('should return the User:last_id for the User class', () => {
+			return Promise.all([raku.cget('User:last_id'), User.lastId()])
+				.then(([v, v2]) => expect(v2).to.eql(v))
+    })
+	})
+
 })
 
 describe('has_many relationship', () => {
