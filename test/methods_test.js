@@ -127,23 +127,23 @@ describe('instance of <Class> < RakuOrm', () => {
 		})
 
     it('should save/load a single model with no dependencies', () => {
-      class Person extends RakuOrm { }
-      Person.schema = {
-        pname: 'String'
+      class Duck extends RakuOrm { }
+      Duck.schema = {
+        name: 'String'
       }
-      RakuOrm.init(Person)
+      RakuOrm.init(Duck)
 
-      let person = new Person()
-      person.pname = "David"
-      return person.save()
+      let duck = new Duck()
+      duck.name = "Donald"
+      return duck.save()
         .then(() => {
-          expect(person.pname).to.eql('David')
-          expect(person.id > 0).to.be.true
+          expect(duck.name).to.eql('Donald')
+          expect(duck.id > 0).to.be.true
         })
-        .then(() => Person.load(person.id, 'pname'))
+        .then(() => Duck.load(duck.id, 'name'))
         .then(p2 => {
-					expect(p2.pname).to.eql('David')
-            expect(p2.id).to.eql(person.id)
+					expect(p2.name).to.eql('Donald')
+            expect(p2.id).to.eql(duck.id)
 				})
     })
 
