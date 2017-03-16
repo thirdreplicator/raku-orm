@@ -74,6 +74,13 @@ describe('instance of <Class> < RakuOrm', () => {
 	}) // describe id
 
 	describe('load()', () => {
+    it('should throw an error if trying to load an undefined attribute', () => {
+      expect(() => {
+        let user = new User(42)
+        user.load('email', 'asdf')
+      }).to.throw(/asdf is not an attribute/i)
+    })
+
 		it('should return a promise', () => {
 			let user = new User()
 			let promise = user.load()

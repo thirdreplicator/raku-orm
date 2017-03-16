@@ -345,9 +345,13 @@ class RakuOrm {
 
 	load(...attrs) {
     const not_id = s => s != 'id'
+    let type, get_fun
 		return Promise.all(attrs.filter(not_id).map(attr => {
-				let type = this.constructor.prop_types[attr]
-				let get_fun = this.constructor.get_fun[type]
+				type = this.constructor.prop_types[attr]
+				get_fun = this.constructor.get_fun[type]
+        if (type == undefined) {
+          throw '' + attr  + ' is not an attribute'
+        }
 				return get_fun.call(raku, this.attr_key(attr))
 			}))
 			.then(values => {
