@@ -146,7 +146,8 @@ class RakuOrm {
 						let attr = obj.key
 						let type = 'HasMany'
 						this.track(klass, attr, type)
-						this.getClass(obj.model).observe(klass, attr)
+            // Do this in the next tick, so that RakuOrm knows about the other classes.
+						process.nextTick(() => this.getClass(obj.model).observe(klass, attr))
 						Object.defineProperty(klass.prototype, attr,
 							 {
 								 get: function() {

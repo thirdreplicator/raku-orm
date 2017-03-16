@@ -25,12 +25,12 @@ Post.schema = {
 	title: 'String',
 	body: 'String',
 	views: 'Integer',
-	belongs_to: [
-			{ model: 'User',
-				method: 'author',
-				inverse_of: 'posts'
-				}
-		]
+	//belongs_to: [
+	//		{ model: 'User',
+	//			method: 'author',
+	//			inverse_of: 'posts'
+	//			}
+	//	]
 }
 
 RakuOrm.init(Post)
