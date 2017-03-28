@@ -203,7 +203,7 @@ class RakuOrm {
 							let model = RakuOrm.name2model(obj.model)
 							return this.load(ids_attr)
                 .then(reloaded => {
-                  let other_ids = this.raw_get(ids_attr) || []
+                  let other_ids = reloaded.get(ids_attr) || []
                   other_ids = other_ids.slice(OFFSET, OFFSET + N)
 							    return Promise.all(other_ids.map(id => (new model(id)).load(...attr_args)))
                 })
@@ -229,18 +229,27 @@ class RakuOrm {
 		return this.classes[klass_name]
 	}
 
-	save_backlink(hm_attr) {
+	async save_backlink(hm_attr) {
 		// For each habtm id, generate the key for the corresponding belongs_to instance.
-		let values = this.raw_get.call(this, hm_attr)
-		let model = RakuOrm.name2model(this.hm_attr2model_name(hm_attr))
-		let save_backlinks = []
+		let current_ids = new Set(this.raw_get.call(this, hm_attr))
+    let disk_ids = new Set((await this.load(hm_attr)).get(hm_attr))
+    let delete_ids = new Set([...disk_ids].filter(x => !current_ids.has(x)))
+    let append_ids = new Set([...current_ids].filter(x => !disk_ids.has(x)))
+    console.log('previous_ids', disk_ids, current_ids, 'delete these', delete_ids.keys(), 'add these', append_ids)
+
 		// We're using Riak CRDT sets via raku/no-riak to store back links.
-		values.forEach(model_id => {
-			const m = new model
-			m.id = model_id
+		let save_backlinks = []
+		let model = RakuOrm.name2model(this.hm_attr2model_name(hm_attr))
+    for(const model_id of delete_ids) {
+			const m = new model(model_id)
+			const backlink_key = m.habtm_backlink_key(this.constructor.name, hm_attr)
+			save_backlinks.push(raku.srem(backlink_key, this.id))
+    }
+		for(const model_id of append_ids) {
+			const m = new model(model_id)
 			const backlink_key = m.habtm_backlink_key(this.constructor.name, hm_attr)
 			save_backlinks.push(raku.sadd(backlink_key, this.id))
-		})
+		}
 		return Promise.all(save_backlinks)
 	}
 

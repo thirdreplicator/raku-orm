@@ -13,6 +13,10 @@ User.schema = {
 			{ model: 'Post',
 				method: 'posts' }
 		],
+  has_many: [
+    { model: 'Post',
+      method: 'approved_articles'}
+    ]
 }
 
 class Post extends RakuOrm { }

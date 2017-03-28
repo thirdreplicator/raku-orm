@@ -35,9 +35,26 @@ describe('habtm relationship', () => {
 
 			let post = new Post()
 			post.id = 542
-			return Promise.all([user.save(), raku.sdel('Post#542:authors_ids')])
+			return Promise.all([user.save()])
 				.then(() => raku.sismember('Post#542:authors_ids', user.id))
 				.then(res => expect(res).to.be.true)
+		})
+
+		it('should remove backlinks that previously existed', () => {
+			let user = new User()
+			user.first_name = 'Loader'
+			user.posts_ids = [542, 1001]
+
+			return user.save()
+				.then(() => raku.sismember('Post#542:authors_ids', user.id))
+				.then(res => expect(res).to.be.true)
+        .then(() => {
+          user.posts_ids = [5, 1001]
+          return user.save()
+        }) 
+				.then(() => raku.sismember('Post#542:authors_ids', user.id))
+				.then(res => expect(res).to.be.false)
+   
 		})
 	})
 
@@ -81,8 +98,7 @@ describe('habtm relationship', () => {
 			user.first_name = 'Loader'
 			user.posts_ids = [542, 1001]
 
-			let post = new Post(542)
-			return raku.sdel('Post#542:User:posts_ids')
+			return raku.sdel('Post#542:authors_ids')
 				.then(() => user.save())
 				.then(() => raku.smembers('Post#542:authors_ids'))
 				.then(backlinks => expect(backlinks).to.eql([user.id]))
@@ -91,12 +107,12 @@ describe('habtm relationship', () => {
 		it("deleted posts should delete their backlinks to posts_ids", () => {
 			let user = new User()
 			user.posts_ids = [542, 1001]
-
 			let post = new Post(542)
-			return raku.sdel('Post#542:User:posts_ids')
+
+			return raku.sdel('Post#542:authors_ids')
 				.then(() => user.save())
 				.then(() => post.delete())
-				.then(() => raku.smembers('Post#542:User:posts_ids'))
+				.then(() => raku.smembers('Post#542:authors_ids'))
 				.then(backlinks => expect(backlinks).to.eql([]))
 		})
 	}) // user.load("posts_ids")
@@ -144,8 +160,7 @@ describe('habtm relationship', () => {
 				})
 				.then(u => u.posts())
 				.then(posts => {
-					expect(posts[0].id).to.eql(post1.id)
-					expect(posts[1].id).to.eql(post2.id)
+					expectSetEquality(posts.map(p => p.id), [post1.id, post2.id])
 				})
 		})
 
@@ -166,6 +181,7 @@ describe('habtm relationship', () => {
 				})
 				.then(u => u.posts())
 				.then(posts => {
+          posts.sort((a, b) => a < b ? -1 : a > b ? 1 : 0)
 					expect(posts[0].title).to.eql(null)
 					expect(posts[0].body).to.eql(null)
 					expect(posts[0].views).to.eql(0)
@@ -221,6 +237,7 @@ describe('habtm relationship', () => {
 				})
 				.then(u => u.posts('title', 'views'))
 				.then(posts => {
+          posts.sort((a, b) => a.title.localeCompare(b.title))
 					expect(posts[0].title).to.eql('title1')
 					expect(posts[0].body).to.eql(null)
 					expect(posts[0].views).to.eql(828)
@@ -352,88 +369,9 @@ describe('habtm relationship', () => {
                 }
                 return user.save()
 				      })))
-        //.then(_ => post.load('authors_ids'))
         .then(_ => post.authors('first_name'))
         .then(users => expectSetEquality(users.map(u => u.first_name), authors))
     }) // it
   }) // describe habtm inverse_of
 }) // describe habtm
 
-//describe('belongs_to methods', () => {
-//	describe('post.author_id', () => {
-//		it('should be null if not set', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('should be assignable', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('should be savable to disk', () => {
-//			asserttitleail('To be implemented.')
-//		})
-//	}) // desctitlebe post.author_id
-//
-//	describe('titlest.author = user', () => {
-//		it('should change the post.author_id value in memory', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('should change the user.posts_ids values in memory to include the new user.id', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('post.save() should change the post.author_id value on disk', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('post.save() should change the user.posts_ids values on disk', () => {
-//			assert.fail('To be implemented.')
-//		})
-//	}) // describe post.author=
-//
-//	describe('post.author', () => {
-//		it('if not yet loaded, it should be null', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('if already loaded, it should be the User instance from disk', () => {
-//			assert.fail('To be implemented.')
-//		})
-//	}) // post.author
-//
-//	describe('post.load("author")', () => {
-//		it('should return a promise load the associated author', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('the promise should evaluate to the associated author', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('poast.author should have been changed to the loaded value', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('post.load("title", ["author", "last_name", "email"]) should load the associated author\'s last_name', () => {
-//			assert.fail('To be implemented.')
-//		})
-//	}) // post.load('author')
-//})
-
-//describe('habtm methods', () => {
-//	// user.followers
-//})
-
-			//let post2 = new Post()
-			//post2.title = 'title2'
-
-			//return Promise.all([user.save(), post1.save(), post2.save()])
-			//	.then(() => {
-			//		let posts_ids_key = user.attr_key('posts_ids')
-			//		return raku.set(posts_ids_key, [post1.id, post2.id])
-			//	})
-			//	.then(() => user.load('title', 'posts_ids'))
-			//	//.then(() => {
-			//	//	expect(user.posts_ids).to.eql([post1.id, post2.id])
-			//	//})
