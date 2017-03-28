@@ -4,17 +4,19 @@ A promise-based ORM for Riak in Node.js using the [raku](https://github.com/thir
 
 ## Features
 
-* automatic id generation
-* instance loading
-* dynamic has-many loading methods
+* automatic integer id generation per class, stored as a CRDT counter
+* instance loading (must specify attributes to be loaded)
+* dynamic has-and-belongs-to-many ("habtm" or many-to-many) loading methods
 * save
 * delete
+* inverse relationships (track which relationship is the inverse of the other).
 
-The current version only supports has many relationships, but with just this you should be able to get many-to-many relationships by mutually defining many-to-many relationships on both classes. Please watch for more features coming in 2017.
+The current version only supports habtm (many-to-many) relationships.
 
-## TODO (hopefully soon)
+## TODO
 
-* belongs-to methods to retrieve the has-many instance. (e.g. post.author())
+* has-many / belongs-to
+* has-one
 
 ## USAGE
 
@@ -32,10 +34,9 @@ User.schema = {
 	username: 'String',
 	email: 'String',
 	password: 'String',
-	has_many: [
-			{ method: 'favorite_posts',
-				model: 'Post',
-				key: 'post_ids'}
+	habtm: [
+			{ method: 'favorite_posts', // 'favorite_posts_ids'  is authomatically created.
+				model: 'Post' }
 		]
 	}
 
@@ -44,6 +45,11 @@ Post.schema = {
 	title: 'String',
 	body: 'String',
 	views: 'Integer',
+  habtm: [
+    { model: 'User',
+      method: 'who_favorited', // 'who_favorited_ids' is automatically created.
+      inverse_of: 'favorite_posts' }
+  ]
 }
 
 RakuOrm.init(Post)
@@ -66,7 +72,7 @@ post2.body = "Isn't this fun?"
 // Save the posts to get an id for each.
 let promise = Promise.all([post1.save(), post2.save()])
   .then(([p1, p2]) => {
-    user.post_ids = [p1.id, p2.id]
+    user.posts_ids = [p1.id, p2.id]
     // Save the user.
     return user.save() })
   .then(() => {
@@ -82,13 +88,18 @@ let promise = Promise.all([post1.save(), post2.save()])
   .then(posts => {
     // Deleting a post will update the on-disk value of the post_ids.
     posts[0].delete()
+
+		// The inverse of user.posts() is post.users()
+    // The following is an example that will return an array of users who favorited this post.
+    return posts[1].who_favored('first_name') 
   })
 
 ```
 
 ##Notes:
 
-2017-02-27: post.user() is not yet implemented, but I think I'd like to have pretty soon.
+2017-03-28: inverse habtm relationships are now implemented.
+2017-02-27: post.user() (inverse has-many relationship) is not yet implemented.
 
 ##License
 
