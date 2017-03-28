@@ -192,6 +192,7 @@ describe('habtm relationship', () => {
 				})
 				.then(u => u.posts('title'))
 				.then(posts => {
+          posts.sort((a, b) => a.title.localeCompare(b.title))
 					expect(posts[0].title).to.eql('title1')
 					expect(posts[0].body).to.eql(null)
 					expect(posts[0].views).to.eql(0)
