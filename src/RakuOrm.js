@@ -235,7 +235,6 @@ class RakuOrm {
     let disk_ids = new Set((await this.load(hm_attr)).get(hm_attr))
     let delete_ids = new Set([...disk_ids].filter(x => !current_ids.has(x)))
     let append_ids = new Set([...current_ids].filter(x => !disk_ids.has(x)))
-    console.log('previous_ids', disk_ids, current_ids, 'delete these', delete_ids.keys(), 'add these', append_ids)
 
 		// We're using Riak CRDT sets via raku/no-riak to store back links.
 		let save_backlinks = []
