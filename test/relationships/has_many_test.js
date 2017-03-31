@@ -1,74 +1,307 @@
 // has_many_test.js
-import Raku from 'raku'
-import RakuOrm from '../../src/RakuOrm'
 import { expect, assert } from 'chai'
-import { User, Post } from '../test_models'
 
+import RakuOrm from '../../src/RakuOrm'
+import { User, Post } from '../test_models'
+import { expectSetEquality } from '../helpers'
+
+import Raku from 'raku'
 const raku = new Raku()
 
 describe('has_many relationship', () => {
   beforeEach(() => raku.deleteAll())
 
-//describe('belongs_to methods', () => {
-//	describe('post.author_id', () => {
-//		it('should be null if not set', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('should be assignable', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('should be savable to disk', () => {
-//			asserttitleail('To be implemented.')
-//		})
-//	}) // desctitlebe post.author_id
-//
-//	describe('titlest.author = user', () => {
-//		it('should change the post.author_id value in memory', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('should change the user.posts_ids values in memory to include the new user.id', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('post.save() should change the post.author_id value on disk', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('post.save() should change the user.posts_ids values on disk', () => {
-//			assert.fail('To be implemented.')
-//		})
-//	}) // describe post.author=
-//
-//	describe('post.author', () => {
-//		it('if not yet loaded, it should be null', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('if already loaded, it should be the User instance from disk', () => {
-//			assert.fail('To be implemented.')
-//		})
-//	}) // post.author
-//
-//	describe('post.load("author")', () => {
-//		it('should return a promise load the associated author', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('the promise should evaluate to the associated author', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('poast.author should have been changed to the loaded value', () => {
-//			assert.fail('To be implemented.')
-//		})
-//
-//		it('post.load("title", ["author", "last_name", "email"]) should load the associated author\'s last_name', () => {
-//			assert.fail('To be implemented.')
-//		})
-//	}) // post.load('author')
-//})
-})
 
+  describe('has_many relationship, e.g. user.approved_articles()', () => {
+    // CREATE
+    it('should save approved articles in approved_articles_ids', async () => {
+      // Assigning the approved_articles_ids should be saved to disk.
+      const post1 = new Post()
+      post1.title = 'title1'
+ 
+      const post2 = new Post()
+      post2.title = 'title2'
+
+      await Promise.all([post1.save(), post2.save()])
+
+      const user = new User()
+      user.first_name = 'David'
+      user.approved_articles_ids = [post1.id, post2.id]
+      await user.save()
+
+      const approved_ids = await raku.smembers(user.attr_key('approved_articles_ids'))
+
+      expectSetEquality(approved_ids, [post1.id, post2.id])
+    })
+
+    // READ
+	  it('should load approved articles', async () => {
+      // Assigning the approved_articles_ids should cause post.approver_id to be saved to disk too.
+      const post1 = new Post()
+      post1.title = 'title1'
+ 
+      const post2 = new Post()
+      post2.title = 'title2'
+
+      await Promise.all([post1.save(), post2.save()])
+
+      const user = new User()
+      user.first_name = 'David'
+      user.approved_articles_ids = [post1.id, post2.id]
+      await user.save()
+     
+      const approved_articles = user.approved_articles('title') 
+      expect(approved_articles[0].constructor.name).to.eql('Post')
+      expectSetEquality(approved_articles.map(p => p.id), user.approved_articles_ids)
+      expectSetEquality(approved_articles.map(p => p.title), ['title1', 'title2'])
+	  })
+
+    // UPDATE
+    it('should overwrite the updated approver when new values are assigned', async () => {
+      // Change the set of approved articles by assigning user.approved_articles_ids.
+      //  This change should delete old associations and create new ones.
+      const post1 = new Post()
+      post1.title = 'title1'
+ 
+      const post2 = new Post()
+      post2.title = 'title2'
+
+      const post3 = new Post()
+      post3.title = 'title3'
+
+      await Promise.all([post1.save(), post2.save(), post3.save()])
+
+      const user1 = new User()
+      user1.first_name = 'David'
+      user1.approved_articles_ids = [post1.id, post2.id]
+      const user2 = new User()
+      user2.first_name = 'Aris'
+      await Promise.all([user1.save(), user2.save()])
+     
+      const approved_articles1 = user1.approved_articles('title') 
+      const approved_articles2 = user2.approved_articles('title') 
+      expectSetEquality(approved_articles1.map(p => p.title), ['title1', 'title2'])
+      expectSetEquality(approved_articles2.map(p => p.title), [])
+
+      // Now set user2's approved articles.
+      user2.approved_articles = [post2.id, post3.id]
+      await user2.save()
+
+      const reloaded_articles1 = await user1.approved_articles('title')
+      const reloaded_articles2 = await user2.approved_articles('title')
+      const reloaded_titles1 = reloaded_articles.map(p => p.title)
+      const reloaded_titles2 = reloaded_articles.map(p => p.title)
+      expectSetEquality(reloaded_titles1, ['title1'])
+      expectSetEquality(reloaded_titles2, ['title2', 'title3'])
+
+      await Promise.all([post1, post2, post3].map(p => p.load('approver_id')))
+      expect(post1.approver_id).to.eql(user1.id)
+      expect(post2.approver_id).to.eql(user2.id)
+      expect(post3.approver_id).to.eql(user2.id)
+    })
+
+    // DELETE
+    it('should delete approvers when new values are assigned (and saved).', async () => {
+      const post1 = new Post()
+      post1.title = 'title1'
+ 
+      const post2 = new Post()
+      post2.title = 'title2'
+
+      await Promise.all([post1.save(), post2.save(), post3.save()])
+
+      const user = new User()
+      user.first_name = 'David'
+      user.approved_articles_ids = [post1.id, post2.id]
+      await user.save()
+   
+      await Promise.all([post1.load('approver_id'), post2.load('approver_id')])
+      expect(post1.approver_id).to.eql(user.id)
+      expect(post2.approver_id).to.eql(user.id)
+
+      // Now delete post2.  It should be removed from the list of user.approved_articles.
+      await post2.delete() 
+      const reloaded_articles = await user.approved_articles('title')
+      const reloaded_titles = reloaded_articles.map(p => p.title)
+      expect(reloaded_titles).to.eql(['title1'])
+      
+    })
+  })
+
+
+  describe('belongs_to relationship e.g. post.approver()', () => {
+    it('should return a single approver', async () => {
+      const user1 = new User()
+      user1.first_name = 'Peter'
+      await user1.save()
+
+      const user2 = new User()
+      user2.first_name = 'Holly'
+      await user2.save()
+
+      const post = new Post()
+      post.title = 'title1'
+      post.approver_id = user1.id
+      await post.save()
+
+      // First set post.approver to user1
+      const approver1 = await post.approver('title')
+      expect(post.approver.first_name).to.eql(user1.first_name)
+
+      // Then set it to another user.
+      post.approver_id = user2.id
+      await post.save()
+      // reload the approver.
+      const approver2 = await post.approver('title')
+      expect(post.approver.first_name).to.eql(user1.first_name)
+      
+			// Two users try to become the approver.  Last write wins.
+      expect(post.approver.constructor.name).to.eql('User')
+      expect(post.approver.id).to.eql(user2.id)
+    })
+
+    // CREATE
+    it('should be assignable by an instance', async () => {
+      // E.g. post.approver = user
+      // This will set the post.approver_id == user.id, which will persist
+      //   the approver upon post.save()
+      const user = new User()
+      user.first_name = 'Paul'
+      await user.save()
+
+      const post = new Post()
+      post.approver = user
+
+      expect(post.approver_id).to.eql(user.id)
+    })
+
+    // CREATE
+    it('should be assignable by assigning user.approved_articles_ids', async () => {
+      const post1 = new Post()
+      post1.title = 'title1'
+ 
+      const post2 = new Post()
+      post2.title = 'title2'
+
+      await Promise.all([post1.save(), post2.save()])
+
+      const user = new User()
+      user.first_name = 'David'
+      user.approved_articles_ids = [post1.id, post2.id]
+      await user.save()
+
+	  	const approver1_id = await raku.get(post1.attr_key('approver_id'))
+	  	const approver2_id = await raku.get(post2.attr_key('approver_id'))
+
+      expect(approver1_id).to.eql(user.id)
+      expect(approver2_id).to.eql(user.id)
+    })
+
+    // CREATE
+    it('should be assignable by assigning post.approver_id', async () => {
+      const user = new User()
+      user.first_name = 'David'
+      await user.save()
+
+      const post1 = new Post()
+      post1.approver_id = user.id
+      post1.title = 'title1'
+ 
+      const post2 = new Post()
+      post2.approver_id = user.id
+      post2.title = 'title2'
+
+      await Promise.all([post1.save(), post2.save()])
+
+	  	const approver1_id = await raku.get(post1.attr_key('approver_id'))
+	  	const approver2_id = await raku.get(post2.attr_key('approver_id'))
+
+    })
+
+    // READ a non-existent approver
+    it('should be loadable by instance', async () => {
+      const post = new Post()
+      const approver = await post.approver('first_name')
+      expect(approver).to.be.null 
+    })
+
+    // READ
+    it('should be loadable by instance', async () => {
+      const user = new User()
+      user.first_name = 'Arnold'
+      await user.save()
+
+      const post = new Post()
+      post.approver_id = user.id
+      post.title = 'title1'
+      await post.save() 
+
+      const approver = await post.approver('first_name')
+      expect(approver.first_name).to.eql('Arnold')
+    })
+
+    // DELETE by setting approver_id = null
+    it('should be deletable', async () => {
+      const user = new User()
+      user.first_name = 'John'
+      await user.save()
+
+      const post = new Post()
+      post.approver_id = user.id
+      post.title = 'title1'
+      await post.save() 
+      expect(post.approver_id).to.eql(user.id)
+
+      // set the approver_id = null
+      post.approver_id = null
+      await post.save()
+
+      const reloaded_post = await post.load('approver_id')
+      expect(reloaded_post.approver_id).to.eql(0)
+    })
+   
+    // DELETE by calling post.remove_approver()
+    it('should be deletable by calling post.remove_approver()', async () => {
+      const user = new User()
+      user.first_name = 'John'
+      await user.save()
+
+      const post = new Post()
+      post.approver_id = user.id
+      post.title = 'title1'
+      await post.save() 
+      expect(post.approver_id).to.eql(user.id)
+
+      // remove the approver
+      post.remove_approver()
+
+      const reloaded_post = await post.load('approver_id')
+      expect(reloaded_post.approver_id).to.eql(0)
+    })
+
+    // Delete of approver causes user.approved_articles_ids to be updated.
+    it('it should update user.approved_articles_ids when post.approver is deleted', async () => {
+      const post1 = new Post()
+      post1.title = 'title1'
+ 
+      const post2 = new Post()
+      post2.title = 'title2'
+
+      await Promise.all([post1.save(), post2.save()])
+
+      const user = new User()
+      user.first_name = 'David'
+      user.approved_articles_ids = [post1.id, post2.id]
+      await user.save()
+   
+      await Promise.all([post1.load('approver_id'), post2.load('approver_id')])
+      const user_reloaded1 = await user.load('approved_articles_ids')
+      expectSetEquality(user_reloaded1.approved_articles_ids, [post1.id, post2.id])
+      
+      // remove the approver
+      post1.remove_approver()
+      const user_reloaded2 = await user.load('approved_articles_ids')
+      expectSetEquality(user_reloaded2.approved_articles_ids, [post2.id])
+    })
+  }) // describe belongs_to
+}) // 

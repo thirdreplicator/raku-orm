@@ -30,7 +30,13 @@ Post.schema = {
 				method: 'authors',
 				inverse_of: 'posts'
 			}
-		]
+		],
+  belongs_to: [
+    { model: 'User',
+      method: 'approver',
+      inverse_of: 'approved_articles'
+    }
+  ]
 }
 
 RakuOrm.init(Post)
