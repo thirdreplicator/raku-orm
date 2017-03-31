@@ -33,6 +33,8 @@ class RakuOrm {
 
 			You need to update both the forward link and the back link upon
 				create, update, and delete.
+
+    # has_many edges are also doubly indexed, but the backlink is just a regular integer attribute.
 	*/
 
 	constructor(id) {
@@ -130,6 +132,54 @@ class RakuOrm {
     return RakuOrm._inverse[klass_name][method_name]
   }
 
+  static define_getter_setter(prototype, attr) {
+		Object.defineProperty(prototype, attr,
+			{
+				get: function() {
+						return this.raw_get.call(this, attr)
+					},
+				set: function(x) {
+					this.dirty[attr] = true
+					this.raw_set.call(this, attr, x)
+				}
+			}
+		)
+  }
+
+  static parse_load_args(load_args) {
+    let n = 10, offset = 0
+    let attr_args = load_args
+    const i_1 = load_args.length - 1
+    const i_2 = load_args.length - 2
+    const last_arg = load_args[i_1]
+    if (typeof last_arg == 'number') {
+			const second_to_last_arg = load_args[i_2]
+      if (typeof second_to_last_arg == 'number') {
+				n = second_to_last_arg
+				offset = last_arg
+				attr_args = load_args.slice(0, i_2)
+      } else {
+				n = last_arg
+				attr_args = load_args.slice(0, i_1)
+      }
+    }
+    return [n, offset, attr_args]
+  } 
+  
+  static define_load_many(B_model, A_model, method, ids_attr) {
+    console.log('typeof B_model', typeof B_model)
+		A_model.prototype[method] = function(...load_args) {
+     const [n, offset, attrs] = RakuOrm.parse_load_args(load_args)
+     // Reload the foreign ids array in case they changed on disk,
+     //  then load the instances corresponding to the foreign ids.
+		 return this.load(ids_attr)
+       .then(reloaded => {
+         let other_ids = reloaded.get(ids_attr) || []
+         other_ids = other_ids.slice(offset, offset + n)
+		     return Promise.all(other_ids.map(id => (new B_model(id)).load(...attrs)))
+       })
+		}
+  }
 	// Create getter and setter functions from the schema, and create auxilliar maps to track
   //  depencies between classes.
 	static init(klass) {
@@ -148,17 +198,7 @@ class RakuOrm {
 				// Define a regular attribute getter and setter, so that we can
 				//	hook into it to track 'dirty' properties that need to be
 				//	saved in the database.
-				Object.defineProperty(klass.prototype, attr,
-					{
-						get: function() {
-								return this.raw_get.call(this, attr)
-							},
-						set: function(x) {
-							this.dirty[attr] = true
-							this.raw_set.call(this, attr, x)
-						}
-					}
-				)
+        this.define_getter_setter(klass.prototype, attr)
 			} else if (key == 'habtm') {
 				if (klass.observed_keys == undefined) { klass.observed_keys = {} }
 				let relationships = schema[key]
@@ -167,54 +207,26 @@ class RakuOrm {
 						// A habtm B
 						obj.A = klass.name
 						obj.B = obj.model
-						let ids_attr = obj.method + '_ids'
+						const ids_attr = obj.method + '_ids'
 						let type = 'Habtm'
 						this.track(klass, ids_attr, type)
 
-            // Do this in the next tick, so that RakuOrm knows about the other classes.
-						process.nextTick(() => this.getClass(obj.model).observe(klass, ids_attr))
             if (obj.inverse_of) { RakuOrm.store_inverse_of(obj.A, obj.method, obj.B, obj.inverse_of) }
-						Object.defineProperty(klass.prototype, ids_attr,
-							 {
-								 get: function() {
-										return this.raw_get.call(this, ids_attr)
-									},
-								 set: function(x) {
-									this.dirty[ids_attr] = x
-									this.raw_set.call(this, ids_attr, x)
-								 }
-							 }
-						 ) // Object.defineProperty
+            this.define_getter_setter(klass.prototype, ids_attr)
 
-             // Define the habtm method for loading e.g. user.posts()
-						 klass.prototype[obj.method] = function(...load_args) {
-              let N = 10, OFFSET = 0
-              let attr_args = load_args
-              if (typeof load_args[load_args.length - 1] == 'number') {
-                if (typeof load_args[load_args.length - 2] == 'number') {
-									N = load_args[load_args.length - 2]
-									OFFSET = load_args[load_args.length - 1]
-									attr_args = load_args.slice(0, load_args.length - 2)
-                } else {
-									N = load_args[load_args.length - 1]
-									attr_args = load_args.slice(0, load_args.length - 1)
-                }
-              }
-							let model = RakuOrm.name2model(obj.model)
-							return this.load(ids_attr)
-                .then(reloaded => {
-                  let other_ids = reloaded.get(ids_attr) || []
-                  other_ids = other_ids.slice(OFFSET, OFFSET + N)
-							    return Promise.all(other_ids.map(id => (new model(id)).load(...attr_args)))
-                })
-						 }
+            // Define the load-many method for loading e.g. user.posts() after the nextTick, which is when
+            //  the model_name -> model index is available.
+						process.nextTick(() => {
+              this.getClass(obj.model).observe(klass, ids_attr)
+						  this.define_load_many(RakuOrm.name2model(obj.model), klass, obj.method, ids_attr)
+            })
 					})
 				}
 			} // else if
 		} // for
 	} // init
 
-	hm_attr2model_name(attr) {
+	habtm_attr2model_name(attr) {
 		let model = null
 		this.constructor.schema.habtm.forEach(hm => {
 			if (hm.method + '_ids' == attr) {
@@ -229,24 +241,24 @@ class RakuOrm {
 		return this.classes[klass_name]
 	}
 
-	async save_backlink(hm_attr) {
+	async save_backlink(habtm_attr) {
 		// For each habtm id, generate the key for the corresponding belongs_to instance.
-		let current_ids = new Set(this.raw_get.call(this, hm_attr))
-    let disk_ids = new Set((await this.load(hm_attr)).get(hm_attr))
+		let current_ids = new Set(this.raw_get.call(this, habtm_attr))
+    let disk_ids = new Set((await this.load(habtm_attr)).get(habtm_attr))
     let delete_ids = new Set([...disk_ids].filter(x => !current_ids.has(x)))
     let append_ids = new Set([...current_ids].filter(x => !disk_ids.has(x)))
 
 		// We're using Riak CRDT sets via raku/no-riak to store back links.
 		let save_backlinks = []
-		let model = RakuOrm.name2model(this.hm_attr2model_name(hm_attr))
+		let model = RakuOrm.name2model(this.habtm_attr2model_name(habtm_attr))
     for(const model_id of delete_ids) {
 			const m = new model(model_id)
-			const backlink_key = m.habtm_backlink_key(this.constructor.name, hm_attr)
+			const backlink_key = m.habtm_backlink_key(this.constructor.name, habtm_attr)
 			save_backlinks.push(raku.srem(backlink_key, this.id))
     }
 		for(const model_id of append_ids) {
 			const m = new model(model_id)
-			const backlink_key = m.habtm_backlink_key(this.constructor.name, hm_attr)
+			const backlink_key = m.habtm_backlink_key(this.constructor.name, habtm_attr)
 			save_backlinks.push(raku.sadd(backlink_key, this.id))
 		}
 		return Promise.all(save_backlinks)
