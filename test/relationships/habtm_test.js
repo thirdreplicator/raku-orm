@@ -127,7 +127,7 @@ describe('habtm relationship', () => {
 		})
 	}) // user.load("posts_ids")
 
-	describe('user.posts(...<ATTRIBUTES>, [LIMIT, [OFFSET]])', () => {
+	describe('user.load_posts(...<ATTRIBUTES>, [LIMIT, [OFFSET]])', () => {
 
 		it('should return a list of posts instances', () => {
 			let user = new User()
@@ -145,7 +145,7 @@ describe('habtm relationship', () => {
 					user.posts_ids = [p1.id, p2.id]
 					return user.save()
 				})
-				.then(u => u.posts())
+				.then(u => u.load_posts())
 				.then(posts => {
 					expect(posts[0].constructor.name).to.eql('Post')
 					expect(posts[1].constructor.name).to.eql('Post')
@@ -153,7 +153,7 @@ describe('habtm relationship', () => {
 			
 		})
 
-		it('user.posts() should each instance should have the id property set to a number in the same order as user.posts_ids', () => {
+		it('user.load_posts() should each instance should have the id property set to a number in the same order as user.posts_ids', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -168,13 +168,13 @@ describe('habtm relationship', () => {
 					user.posts_ids = [p1.id, p2.id]
 					return user.save()
 				})
-				.then(u => u.posts())
+				.then(u => u.load_posts())
 				.then(posts => {
 					expectSetEquality(posts.map(p => p.id), [post1.id, post2.id])
 				})
 		})
 
-		it('user.posts() (with no arguments) should not load any attributes except for the id', () => {
+		it('user.load_posts() (with no arguments) should not load any attributes except for the id', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -189,7 +189,7 @@ describe('habtm relationship', () => {
 					user.posts_ids = [p1.id, p2.id]
 					return user.save()
 				})
-				.then(u => u.posts())
+				.then(u => u.load_posts())
 				.then(posts => {
           posts.sort((a, b) => a < b ? -1 : a > b ? 1 : 0)
 					expect(posts[0].title).to.eql(null)
@@ -201,7 +201,7 @@ describe('habtm relationship', () => {
 				})
 		})
 
-		it('user.posts("title") should load the title property from the database', () => {
+		it('user.load_posts("title") should load the title property from the database', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -216,7 +216,7 @@ describe('habtm relationship', () => {
 					user.posts_ids = [p1.id, p2.id]
 					return user.save()
 				})
-				.then(u => u.posts('title'))
+				.then(u => u.load_posts('title'))
 				.then(posts => {
           posts.sort((a, b) => a.title.localeCompare(b.title))
 					expect(posts[0].title).to.eql('title1')
@@ -228,7 +228,7 @@ describe('habtm relationship', () => {
 				})
 		})
 
-		it('user.posts("title", "views") should load the title and views properties from the database', () => {
+		it('user.load_posts("title", "views") should load the title and views properties from the database', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -245,7 +245,7 @@ describe('habtm relationship', () => {
 					user.posts_ids = [p1.id, p2.id]
 					return user.save()
 				})
-				.then(u => u.posts('title', 'views'))
+				.then(u => u.load_posts('title', 'views'))
 				.then(posts => {
           posts.sort((a, b) => a.title.localeCompare(b.title))
 					expect(posts[0].title).to.eql('title1')
@@ -257,7 +257,7 @@ describe('habtm relationship', () => {
 				})
 		})
 
-		it('user.posts("title", "views") should not load more than 10 records by default.', () => {
+		it('user.load_posts("title", "views") should not load more than 10 records by default.', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -276,11 +276,11 @@ describe('habtm relationship', () => {
 					user.posts_ids = psts.map(p => p.id)
 					return user.save()
 				})
-				.then(u => u.posts('title', 'views'))
+				.then(u => u.load_posts('title', 'views'))
 				.then(posts => expect(posts.length).to.eql(10))
 		})
 
-		it('user.posts("title", "views", 5) should not load more than 5 records by default.', () => {
+		it('user.load_posts("title", "views", 5) should not load more than 5 records by default.', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -299,11 +299,11 @@ describe('habtm relationship', () => {
 					user.posts_ids = psts.map(p => p.id)
 					return user.save()
 				})
-				.then(u => u.posts('title', 'views', 5))
+				.then(u => u.load_posts('title', 'views', 5))
 				.then(posts => expect(posts.length).to.eql(5))
 		})
 
-		it('user.posts("views", "title", 20) should not load more than the total number of records currently in the database(15).', () => {
+		it('user.load_posts("views", "title", 20) should not load more than the total number of records currently in the database(15).', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -322,11 +322,11 @@ describe('habtm relationship', () => {
 					user.posts_ids = psts.map(p => p.id)
 					return user.save()
 				})
-				.then(u => u.posts('title', 'views', 20))
+				.then(u => u.load_posts('title', 'views', 20))
 				.then(posts => expect(posts.length).to.eql(15))
 		})
 
-		it('user.posts("title", "views", 5, 3) should load 5 records skipping the first 3', () => {
+		it('user.load_posts("title", "views", 5, 3) should load 5 records skipping the first 3', () => {
 			let user = new User()
 			user.first_name = 'David'
 
@@ -345,7 +345,7 @@ describe('habtm relationship', () => {
 					user.posts_ids = psts.map(p => p.id)
 					return user.save()
 				})
-				.then(u => u.posts('title', 'views', 5, 3))
+				.then(u => u.load_posts('title', 'views', 5, 3))
 				.then(posts => {
 					expect(posts.length).to.eql(5)
 					expect(posts[0].id).to.eql(103)
@@ -360,7 +360,7 @@ describe('habtm relationship', () => {
 					expect(posts[4].title).to.eql('title_' + 7)
 				})
 		})
-	}) // describe user.posts()
+	}) // describe user.load_posts()
 
   describe('habtm inverse_of', () => {
     it('given a post, it should return the authors', () => {
@@ -383,7 +383,7 @@ describe('habtm relationship', () => {
 				   })
            return promise
         })
-        .then(_ => post.authors('first_name'))
+        .then(_ => post.load_authors('first_name'))
         .then(users => expectSetEquality(users.map(u => u.first_name), authors))
     }) // it
   }) // describe habtm inverse_of

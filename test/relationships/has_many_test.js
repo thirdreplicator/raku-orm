@@ -11,7 +11,7 @@ const raku = new Raku()
 describe('has_many relationship', () => {
   beforeEach(() => raku.deleteAll())
 
-  describe('has_many relationship, e.g. user.approved_articles()', () => {
+  describe('has_many relationship, e.g. user.load_approved_articles()', () => {
     // CREATE
     it('should save approved articles in approved_articles_ids', async () => {
       // Assigning the approved_articles_ids should be saved to disk.
@@ -48,7 +48,7 @@ describe('has_many relationship', () => {
       user.approved_articles_ids = [post1.id, post2.id]
       await user.save()
      
-      const approved_articles = await user.approved_articles('title') 
+      const approved_articles = await user.load_approved_articles('title') 
       expect(approved_articles[0].constructor.name).to.eql('Post')
       expectSetEquality(approved_articles.map(p => p.id), user.approved_articles_ids)
       expectSetEquality(approved_articles.map(p => p.title), ['title1', 'title2'])
@@ -81,8 +81,8 @@ describe('has_many relationship', () => {
       await user1.save()
       await user2.save()
      
-      const approved_articles1 = await user1.approved_articles('title') 
-      const approved_articles2 = await user2.approved_articles('title') 
+      const approved_articles1 = await user1.load_approved_articles('title') 
+      const approved_articles2 = await user2.load_approved_articles('title') 
       expectSetEquality(approved_articles1.map(p => p.title), ['title1', 'title2'])
       expectSetEquality(approved_articles2.map(p => p.title), [])
 
@@ -90,8 +90,8 @@ describe('has_many relationship', () => {
       user2.approved_articles_ids = [post2.id, post3.id]
       await user2.save()
 
-      const reloaded_articles1 = await user1.approved_articles('title')
-      const reloaded_articles2 = await user2.approved_articles('title')
+      const reloaded_articles1 = await user1.load_approved_articles('title')
+      const reloaded_articles2 = await user2.load_approved_articles('title')
       const reloaded_titles1 = reloaded_articles1.map(p => p.title)
       const reloaded_titles2 = reloaded_articles2.map(p => p.title)
       expectSetEquality(reloaded_titles2, ['title2', 'title3'])
@@ -132,7 +132,7 @@ describe('has_many relationship', () => {
       // Now delete post2.  It should be removed from the list of user.approved_articles.
       await post2.delete() 
 
-      const reloaded_articles = await user.approved_articles('title')
+      const reloaded_articles = await user.load_approved_articles('title')
       const reloaded_titles = reloaded_articles.map(p => p.title)
       expectSetEquality(reloaded_titles, ['title1', 'title3'])
       

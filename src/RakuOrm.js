@@ -180,8 +180,9 @@ class RakuOrm {
     return [n, offset, attr_args]
   } 
   
-  static define_load_many(B_model, A_model, method, ids_attr) {
-		A_model.prototype[method] = function(...load_args) {
+  static define_load_many(B_model, A_model, rel_name, ids_attr) {
+    const load_fn = 'load_' + rel_name
+		A_model.prototype[load_fn] = function(...load_args) {
      const [n, offset, attrs] = RakuOrm.parse_load_args(load_args)
      // Reload the foreign ids array in case they changed on disk,
      //  then load the instances corresponding to the foreign ids.
