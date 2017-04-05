@@ -43,7 +43,7 @@ class RakuOrm {
 		let that = this
 		this.constructor.props && this.constructor.props.forEach(attr => {
 			let type = that.constructor.prop_types[attr]
-			that.set(attr, that.constructor.initial_value[type])
+			that.raw_set(attr, that.constructor.initial_value[type])
 		})
 		if (id != undefined) this.id = id
 	}
@@ -78,6 +78,7 @@ class RakuOrm {
 
   // Map property names to and property types.
 	static track(klass, attr, type) {
+    RakuOrm.store_prop_type(klass.name, attr, type)
 		if (klass.props == undefined) { klass.props = [] }
 		if (klass.prop_types == undefined) { klass.prop_types = {} }
 		klass.props.push(attr)
@@ -116,20 +117,33 @@ class RakuOrm {
 	}
 
   // Map relationships to their inverses.
-  static store_inverse_of(klass_name, method_name, klass_name_inverse, method_name_inverse) {
+  static store_inverse_of(klass_name, method_name, type_name, klass_name_inverse, method_name_inverse, type_name_inverse) {
     if (RakuOrm._inverse == undefined) { this._inverse = {} }
     if (RakuOrm._inverse[klass_name] == undefined) { this._inverse[klass_name] = {} }
     if (RakuOrm._inverse[klass_name][method_name] == undefined) { this._inverse[klass_name][method_name] = {} }
     if (RakuOrm._inverse[klass_name_inverse] == undefined) { this._inverse[klass_name_inverse] = {} }
     if (RakuOrm._inverse[klass_name_inverse][method_name_inverse] == undefined) { this._inverse[klass_name_inverse][method_name_inverse] = {} }
-    RakuOrm._inverse[klass_name][method_name] = {model: klass_name_inverse, method: method_name_inverse}
-    RakuOrm._inverse[klass_name_inverse][method_name_inverse] = {model: klass_name, method: method_name}
+    RakuOrm._inverse[klass_name][method_name] = {model: klass_name_inverse, method: method_name_inverse, type: type_name_inverse}
+    RakuOrm._inverse[klass_name_inverse][method_name_inverse] = {model: klass_name, method: method_name, type: type_name}
   }
 
   static inverse_of(klass_name, method_name) {
     if (RakuOrm._inverse == undefined) { return undefined}
     if (RakuOrm._inverse[klass_name] == undefined) { return undefined }
-    return RakuOrm._inverse[klass_name][method_name]
+		const rel_name = method_name.replace(/_ids?$/, '')  
+    return RakuOrm._inverse[klass_name][rel_name]
+  }
+
+	static store_prop_type(klass_name, method_name, type_name) {
+    if (RakuOrm._prop_type == undefined) { RakuOrm._prop_type = {} }
+    if (RakuOrm._prop_type[klass_name] == undefined) { this._prop_type[klass_name] = {} }
+    if (RakuOrm._prop_type[klass_name][method_name] == undefined) { this._prop_type[klass_name][method_name] = type_name }
+  }
+
+  static prop_type(klass_name, method_name) {
+    if (RakuOrm._prop_type == undefined) { return undefined }
+    if (RakuOrm._prop_type[klass_name] == undefined ) { return undefined }
+    return RakuOrm._prop_type[klass_name][method_name]
   }
 
   static define_getter_setter(prototype, attr) {
@@ -167,7 +181,6 @@ class RakuOrm {
   } 
   
   static define_load_many(B_model, A_model, method, ids_attr) {
-    console.log('typeof B_model', typeof B_model)
 		A_model.prototype[method] = function(...load_args) {
      const [n, offset, attrs] = RakuOrm.parse_load_args(load_args)
      // Reload the foreign ids array in case they changed on disk,
@@ -179,7 +192,74 @@ class RakuOrm {
 		     return Promise.all(other_ids.map(id => (new B_model(id)).load(...attrs)))
        })
 		}
+  } // static define_load_many
+
+  static define_load_one(model_A, model_B, rel_name) {
+    const id_attr = rel_name + '_id'
+    const load_fn = 'load_' + rel_name 
+		model_A.prototype[load_fn] = function(...attrs) {
+      // Reload from disk first, then
+      //  return an instance of the B_model with the specified attrs.
+      return this.load(id_attr)
+        .then(async (reloaded) => {
+          let other_id = reloaded.get(id_attr) || null
+          if (other_id == null) { return Promise.resolve(null) }
+          const b = await new model_B(other_id).load(...attrs)
+          this[rel_name] = b
+          return b
+        })
+    }
+  } // static delete_belongs_to
+
+  static keys(klass_name, attr, ...ids) {
+    return ids.map(id => this.key(klass_name, attr, id))
   }
+
+  static key(klass_name, attr, id) {
+    return klass_name + '#' + id + ':' + attr
+  }
+
+  static inverse_key(klass_name, attr_name, id) {
+    const inverse = RakuOrm.inverse_of(klass_name, attr_name)
+    if (!inverse) { throw 'No inverse found for (' + klass_name + ', ' + attr_name + ')' }
+		const type = inverse.type
+		const inverse_attr = inverse.method + this.id_postfix(type)
+		return this.key(inverse.model, inverse_attr, id)
+  }
+
+  static inverse_keys(klass_name, attr_name, ...ids) {
+    return ids.map(id => this.inverse_key(klass_name, attr_name, id))
+  }
+
+  static define_remove_belongs_to(model_A, rel_name) {
+    const id_attr = rel_name + '_id'
+    const load_fn = 'remove_' + rel_name 
+		model_A.prototype[load_fn] = function() {
+      const fk = this.raw_get(id_attr)
+      if (!fk) { return -1 }
+      this.set(id_attr, null)
+      const backlink_keys = RakuOrm.inverse_keys(model_A.name, id_attr, ...[fk])
+			//const inverse_key = b.belongs_to_backlink_key(model_A.name, rel_name)
+      return this.save()
+        .then(_ => Promise.all(backlink_keys.map(k => raku.srem(k, fk))))
+    }
+  } // static define_delete_belongs_to
+
+  static inverse_type(type) {
+    if (type == 'habtm') {
+      return 'habtm'
+    } else if (type == 'has_many') {
+      return 'belongs_to'
+    } else if (type == 'belongs_to') {
+      return 'has_many'
+    }
+  }
+
+  static id_postfix(type) {
+    if (type == 'habtm' || type == 'has_many') { return '_ids' }
+    else { return '_id' }
+  }
+
 	// Create getter and setter functions from the schema, and create auxilliar maps to track
   //  depencies between classes.
 	static init(klass) {
@@ -195,45 +275,96 @@ class RakuOrm {
 				let attr = key
 				this.track(klass, attr, type)
 
-				// Define a regular attribute getter and setter, so that we can
+				// Define a regular attribute getter and setters, so that we can
 				//	hook into it to track 'dirty' properties that need to be
 				//	saved in the database.
         this.define_getter_setter(klass.prototype, attr)
-			} else if (key == 'habtm') {
-				if (klass.observed_keys == undefined) { klass.observed_keys = {} }
-				let relationships = schema[key]
-				if (Array.isArray(relationships)) {
-					relationships.forEach(obj => {
-						// A habtm B
-						obj.A = klass.name
-						obj.B = obj.model
-						const ids_attr = obj.method + '_ids'
-						let type = 'Habtm'
-						this.track(klass, ids_attr, type)
+			} else if (key == 'habtm' || key == 'has_many') {
+				//if (klass.observed_keys == undefined) { klass.observed_keys = {} }
+				const rel_type = key
+				let relationships = schema[rel_type]
+				if (!Array.isArray(relationships)) { throw klass.name + '.' + rel_type + ' should be an Array' }
+				relationships.forEach(rel => {
+					// A [has_many||habtm] B
+          const model_A = klass
+          const model_A_name = model_A.name
+          const model_B_name = rel.model
+					const ids_attr = rel.method + this.id_postfix(rel_type)
 
-            if (obj.inverse_of) { RakuOrm.store_inverse_of(obj.A, obj.method, obj.B, obj.inverse_of) }
-            this.define_getter_setter(klass.prototype, ids_attr)
+          // Store inverse relationship.
+          if (rel.inverse_of) { RakuOrm.store_inverse_of(model_A_name, rel.method, rel_type, model_B_name, rel.inverse_of, this.inverse_type(rel_type)) }
 
-            // Define the load-many method for loading e.g. user.posts() after the nextTick, which is when
-            //  the model_name -> model index is available.
-						process.nextTick(() => {
-              this.getClass(obj.model).observe(klass, ids_attr)
-						  this.define_load_many(RakuOrm.name2model(obj.model), klass, obj.method, ids_attr)
-            })
-					})
-				}
-			} // else if
+          // Track the meta-data (name and type) of the <RELATIONSHIP>_ids attribute.
+					this.track(model_A, ids_attr, rel_type)
+
+          // define <RELATIONSHIP>'_ids getter/setter.
+          this.define_getter_setter(model_A.prototype, ids_attr)
+
+          // Define the load-many method for loading e.g. user.posts()
+          // It needs to be done after the nextTick to get access to the other model, because
+          //   user-defined models can be initialized in any order.  So, we need to wait until
+          //   the (class name -> class reference) map to be defined in the next tick.
+					process.nextTick(() => {
+            this.getClass(model_B_name).observe(model_A, ids_attr)
+            const model_B = RakuOrm.name2model(model_B_name)
+					  this.define_load_many(model_B, model_A, rel.method, ids_attr)
+          })
+				})
+          
+			} else if (key == 'belongs_to') {
+				const rel_type = key
+				let relationships = schema[rel_type]
+				if (!Array.isArray(relationships)) { throw klass.name + '.' + rel_type + ' should be an Array' }
+				relationships.forEach(rel => {
+          // A belongs_to B
+          const model_A = klass
+          const model_A_name = model_A.name
+          const model_B_name = rel.model
+					const id_attr = rel.method + this.id_postfix(rel_type)
+
+          // Track the meta-data (name and type) of the <RELATIONSHIP>_id attribute.
+					this.track(model_A, id_attr, rel_type)
+
+          // Store inverse relationship.
+          if (rel.inverse_of) { RakuOrm.store_inverse_of(model_A_name, rel.method, this.inverse_type(rel_type), model_B_name, rel.inverse_of, this.inverse_type(rel_type)) }
+
+          // define <RELATIONSHIP>'_id getter/setter.
+          this.define_getter_setter(model_A.prototype, id_attr)
+
+          // Track the meta-data (name and type) of the <RELATIONSHIP>_ids attribute.
+					this.track(model_A, rel.method, 'Integer')
+
+          // define <RELATIONSHIP>'_id getter/setter.
+          this.define_getter_setter(model_A.prototype, rel.method)
+
+
+					process.nextTick(() => {
+            this.getClass(model_B_name).observe(model_A, id_attr)
+            const model_B = RakuOrm.name2model(model_B_name)
+						this.define_load_one(model_A, model_B, rel.method)
+						this.define_remove_belongs_to(model_A, rel.method)
+          })
+        }) // relationships.forEach
+      }
 		} // for
 	} // init
 
 	habtm_attr2model_name(attr) {
 		let model = null
-		this.constructor.schema.habtm.forEach(hm => {
+		this.constructor.schema['habtm'].forEach(hm => {
 			if (hm.method + '_ids' == attr) {
 				model = hm.model
 				return null
 			}
 		})
+    if (model == null) {
+		  this.constructor.schema['has_many'].forEach(hm => {
+		  	if (hm.method + '_ids' == attr) {
+		  		model = hm.model
+		  		return null
+		  	}
+		  })
+    }
 		return model
 	}
 
@@ -241,28 +372,88 @@ class RakuOrm {
 		return this.classes[klass_name]
 	}
 
-	async save_backlink(habtm_attr) {
+	async save_habtm_backlink(habtm_attr) {
+    // Let A habtm B
 		// For each habtm id, generate the key for the corresponding belongs_to instance.
 		let current_ids = new Set(this.raw_get.call(this, habtm_attr))
     let disk_ids = new Set((await this.load(habtm_attr)).get(habtm_attr))
     let delete_ids = new Set([...disk_ids].filter(x => !current_ids.has(x)))
     let append_ids = new Set([...current_ids].filter(x => !disk_ids.has(x)))
 
+		let B = RakuOrm.name2model(this.habtm_attr2model_name(habtm_attr))
+
 		// We're using Riak CRDT sets via raku/no-riak to store back links.
 		let save_backlinks = []
-		let model = RakuOrm.name2model(this.habtm_attr2model_name(habtm_attr))
     for(const model_id of delete_ids) {
-			const m = new model(model_id)
+			const m = new B(model_id)
 			const backlink_key = m.habtm_backlink_key(this.constructor.name, habtm_attr)
 			save_backlinks.push(raku.srem(backlink_key, this.id))
     }
 		for(const model_id of append_ids) {
-			const m = new model(model_id)
+			const m = new B(model_id)
 			const backlink_key = m.habtm_backlink_key(this.constructor.name, habtm_attr)
 			save_backlinks.push(raku.sadd(backlink_key, this.id))
 		}
 		return Promise.all(save_backlinks)
 	}
+
+  async save_belongs_to_backlink(id_attr, old) {
+    const current_fk = this.raw_get(id_attr)
+    const previous_fk = old[id_attr]
+    const klass = this.constructor.name
+    if (current_fk == previous_fk) { return Promise.resolve(-1) }
+		await raku.srem(RakuOrm.inverse_key(klass, id_attr, previous_fk), this.id)
+    let promise = Promise.resolve(1) 
+    if (current_fk != null) {
+      promise = raku.sadd(RakuOrm.inverse_key(klass, id_attr, current_fk), current_fk)
+    }
+    return promise
+  }
+
+  async save_has_many_backlink(attr) {
+    // We have to do something special for has_many relationships.
+    // The backlinks (B models' belongs_to foreign key) are integers, possibly pointing to other (imminently stale) a's.
+    // Since, the relationship is doubly indexed and B belongs to at most 1 instance of A, we need to update the a's
+    // has-many array to remove, the b.id that `this` A instance is about to take over.
+
+		let current_ids = new Set(this.raw_get.call(this, attr))
+    let disk_ids = new Set((await this.load(attr)).get(attr))
+    let delete_ids = new Set([...disk_ids].filter(x => !current_ids.has(x)))
+    let new_ids = new Set([...current_ids].filter(x => !disk_ids.has(x)))
+		let B = RakuOrm.name2model(this.habtm_attr2model_name(attr))
+
+    // Remove the stolen ids of B from the A's that were linking to it.
+    // This is part of enforcing B belongs to at most one A.
+    // This needs to happend before the backlink gets overwritten by this.id.
+    let update_robbed_As = []
+    for (let b_id of new_ids) {
+      const b = new B(b_id)
+			const backlink_key = b.has_many_backlink_key(this.constructor.name, attr)
+      const remove_promise = raku.get(backlink_key)
+        .then(a_id => {
+          if (a_id && a_id != this.id) {
+            return raku.srem(RakuOrm.key_name(this.constructor.name, a_id, attr), b_id)
+          } else {
+            return -1
+          }
+        })
+			update_robbed_As.push(remove_promise)
+    }
+    await Promise.all(update_robbed_As)
+
+		let save_backlinks = []
+    for(const model_id of delete_ids) {
+			const m = new B(model_id)
+			const backlink_key = m.has_many_backlink_key(this.constructor.name, attr)
+			save_backlinks.push(raku.del(backlink_key, this.id))
+    }
+		for(const model_id of new_ids) {
+			const m = new B(model_id)
+			const backlink_key = m.has_many_backlink_key(this.constructor.name, attr)
+			save_backlinks.push(raku.put(backlink_key, this.id))
+		}
+		return Promise.all(save_backlinks)
+  }
 
 	save_prop(attr) {
 		let type = this.constructor.prop_types[attr]
@@ -270,10 +461,10 @@ class RakuOrm {
 		let put_fun = this.constructor.set_fun[type]
 		let value = this.raw_get.call(this, attr)
 		let promise 
-		if (type == 'Habtm') {
+		if (type == 'habtm' || type == 'has_many') {
 			promise = this.constructor.del_fun[type].call(raku, k)
 				.then(() => put_fun.call(raku, k, ...value))
-		} else {
+    } else {
 			promise = put_fun.call(raku, k, value)
 		}
 		return promise
@@ -293,27 +484,32 @@ class RakuOrm {
 		}
 
 		// Now we have an id for this instance.
+		// Save only the dirty keys.
+		let dirty_keys = Object.keys(this.dirty)
+			.filter(key => key != 'id' && this.dirty[key] != null)
 		return promise
-			.then(() => {
-				// Save the dirty keys.
-				let dirty_keys = Object.keys(this.dirty)
-					.filter(key => key != 'id' && this.dirty[key] != null)
-				let promises = dirty_keys.map(attr => {
-						let p1 = that.save_prop(attr)
+      .then(_ => new this.constructor(this.id).load(...dirty_keys))
+			.then(disk_values => {
+				let backlink_promises = dirty_keys.map(attr => {
+            let p1 = that.save_prop(attr)
 						let p2 = Promise.resolve(this)
-						if ('Habtm' == that.constructor.prop_types[attr]) {
-							p2 = that.save_backlink(attr)
-						}
-						return Promise.all([p1, p2])
-					})
-				return Promise.all(promises)
+            const attr_type = that.constructor.prop_types[attr]
+						if ('habtm' == attr_type) {
+							p2 = that.save_habtm_backlink(attr)
+						} else if ('has_many' == attr_type) {
+              p2 = that.save_has_many_backlink(attr)
+            } else if ('belongs_to' == attr_type) {
+              p2 = that.save_belongs_to_backlink(attr, disk_values)
+            }
+            return Promise.all([p1, p2])
+					}) //
+        return Promise.all(backlink_promises)
 					.then(() => that)
 			})
 	}
 
 	static load(id, ...attrs) {
-		let instance = new this()
-		instance.id = id
+		let instance = new this(id)
 		return instance.load(...attrs)
 	}
 
@@ -321,14 +517,18 @@ class RakuOrm {
 		let that = this
 		this.constructor.props.forEach(attr => {
 			let type = that.constructor.prop_types[attr]
-			that.set(attr, that.constructor.initial_value[type])
+			that.raw_set(attr, that.constructor.initial_value[type])
 		})
 	}
 
 	// Remove associations
-	remove(attr, fk_id) {
+	remove(attr, fk_id, type) {
 		const key = this.attr_key(attr)
-		return raku.srem(key, fk_id)
+    if (type == 'habtm' || type == 'has_many') {
+			return raku.srem(key, fk_id)
+    } else {
+			return raku.del(key)
+    }
 	}
 
 	delete_props() {
@@ -340,14 +540,23 @@ class RakuOrm {
 			model_A = RakuOrm.classes[model_A_name]
 			attributes = this.constructor.observed_keys(model_A_name)
 			attributes.forEach(model_A_attr => {
-				key = this.habtm_backlink_key(model_A_name, model_A_attr)
-				let update_model_A = raku.smembers(key)
-					.then(model_A_ids => {
-						return Promise.all(model_A_ids.map(id => {
-								let a = new model_A(id)
-								return a.remove(model_A_attr, that.id)
-							}))
-					})
+        const type = model_A.prop_types[model_A_attr]
+        let get_A_ids = null
+        if (type == 'has_many') {
+					key = this.has_many_backlink_key(model_A_name, model_A_attr)
+          get_A_ids = raku.get(key).then( res => [ res ] )
+        } else if (type == 'belongs_to') {
+          key = this.belongs_to_backlink_key(model_A_name, model_A_attr)
+          get_A_ids = raku.smembers(key)
+        } else if (type =='habtm') {
+					key = this.habtm_backlink_key(model_A_name, model_A_attr)
+          get_A_ids = raku.smembers(key)
+        }
+				let update_model_A = get_A_ids
+					.then(model_A_ids => Promise.all(model_A_ids.map(id => {
+						let a = new model_A(id)
+						return a.remove(model_A_attr, that.id, type)
+					})))
 				delete_promises.push(update_model_A)
 				remove_backlinks.push(raku.sdel(key))
 			})
@@ -375,6 +584,10 @@ class RakuOrm {
 		return this.name + ':last_id'
 	}
 
+  static key_name(klass_name, id, prop_name) {
+    return klass_name + '#' + id + (prop_name ?  ':' +  prop_name : '')
+  }
+
 	instance_name() {
 		return this.constructor.name + '#' + this.id
 	}
@@ -382,6 +595,20 @@ class RakuOrm {
 	attr_key(prop_name) {
 		return this.instance_name() + ':' + prop_name
 	}
+
+	has_many_backlink_key(klass, key) {
+    const method = key.replace(/_ids$/, '')
+    const inverse = RakuOrm.inverse_of(klass, method)
+    const backlink_key = inverse ? this.attr_key(inverse.method + '_id') : this.instance_name() + ':' + klass + ':' + key
+		return backlink_key
+	}
+
+  belongs_to_backlink_key(klass, key) {
+    const method = key.replace(/_id$/, '')
+    const inverse = RakuOrm.inverse_of(klass, method)
+    const backlink_key = inverse ? this.attr_key(inverse.method + '_ids') : this.instance_name() + ':' + klass + ':' + key
+		return backlink_key
+  }
 
 	habtm_backlink_key(klass, key) {
     const method = key.replace(/_ids$/, '')
@@ -397,7 +624,7 @@ class RakuOrm {
 				type = this.constructor.prop_types[attr]
 				get_fun = this.constructor.get_fun[type]
         if (type == undefined) {
-          throw '' + attr  + ' is not an attribute'
+          throw 'Could not find attribute type.  Maybe ' + attr  + ' is not an attribute'
         }
 				return get_fun.call(raku, this.attr_key(attr))
 			}))
@@ -418,28 +645,37 @@ RakuOrm.get_fun = {
 	'ID': raku.cget,
 	'String': raku.get,
 	'Integer': raku.cget,
-	'Habtm': raku.smembers
+	'habtm': raku.smembers,
+	'has_many': raku.smembers,
+  'belongs_to': raku.get,
 }
 
 RakuOrm.set_fun = {
 	'ID': raku.cset,
 	'String': raku.set,
 	'Integer': raku.cset,
-	'Habtm': raku.sadd
+	'habtm': raku.sadd,
+	'has_many': raku.sadd,
+  'belongs_to': raku.set,
 }
 
 RakuOrm.del_fun = {
 	'ID': raku.cdel,
 	'String': raku.del,
 	'Integer': raku.cdel,
-	'Habtm': raku.sdel
+	'habtm': raku.sdel,
+	'has_many': raku.sdel,
+  'belongs_to': raku.del,
 }
 
 RakuOrm.initial_value = {
 	'ID': null,
 	'String': null,
 	'Integer': 0,
-	'Habtm': []
+	'habtm': [],
+	'has_many': [],
+  'belongs_to': null,
+  'Class': null
 }
 
 export default RakuOrm

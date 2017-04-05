@@ -35,9 +35,19 @@ describe('habtm relationship', () => {
 
 			let post = new Post()
 			post.id = 542
-			return Promise.all([user.save()])
+			return user.save()
 				.then(() => raku.sismember('Post#542:authors_ids', user.id))
 				.then(res => expect(res).to.be.true)
+		})
+
+		it('should return an array of user.posts_ids', () => {
+			let user = new User()
+			user.first_name = 'Loader'
+			user.posts_ids = [542, 1001]
+
+			return user.save()
+        .then(_ => user.load('posts_ids'))
+				.then(u => expectSetEquality(u.posts_ids, [542, 1001]))
 		})
 
 		it('should remove backlinks that previously existed', () => {
@@ -361,14 +371,18 @@ describe('habtm relationship', () => {
       let authors = ['David', 'Valerie', 'Tom']
 
       return post.save()      
-        .then(() => Promise.all(user_names.map(name => {
-                let user = new User()
-                user.first_name = name
-                if (name != 'Obama') {
-							 	 user.posts_ids = [post.id]
-                }
-                return user.save()
-				      })))
+        .then(() => {
+           let promise = Promise.resolve(1)
+           user_names.forEach(name => {
+             let user = new User()
+             user.first_name = name
+             if (name != 'Obama') {
+					  	 user.posts_ids = [post.id]
+             }
+             promise = promise.then(_ => user.save())
+				   })
+           return promise
+        })
         .then(_ => post.authors('first_name'))
         .then(users => expectSetEquality(users.map(u => u.first_name), authors))
     }) // it

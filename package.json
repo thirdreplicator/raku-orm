@@ -1,6 +1,6 @@
 {
   "name": "raku-orm",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "A basic ORM for Riak",
   "main": "dist/RakuOrm.js",
   "scripts": {
@@ -36,7 +36,7 @@
     "babel-polyfill": "^6.9.1",
     "basho-riak-client": "^2.2.2",
     "no-riak": "^1.4.0",
-    "raku": "^2.5.0"
+    "raku": "^2.5.1"
   },
   "devDependencies": {
     "babel-cli": "^6.18.0",
