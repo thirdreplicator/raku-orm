@@ -1,5 +1,5 @@
-// with_inverse.js
-// Test models with inverse relationships (habtm, has_many, belongs_to, has_one)
+// solo.js
+// Models without inverse relationships.
 
 import RakuOrm from '../../src/RakuOrm'
 
@@ -27,18 +27,6 @@ Post.schema = {
 	title: 'String',
 	body: 'String',
 	views: 'Integer',
-	habtm: [
-			{ model: 'User',
-				method: 'authors',
-				inverse_of: 'posts'
-			}
-		],
-  belongs_to: [
-    { model: 'User',
-      method: 'approver',
-      inverse_of: 'approved_articles'
-    }
-  ],
   has_one: [
     { model: 'Media',
       method: 'featured_image' 
@@ -51,12 +39,6 @@ class Media extends RakuOrm { }
 Media.schema = {
   location: 'String',
   attributes: 'String',
-  has_one: [
-    { model: 'Post',
-      method: 'post_featured',
-      inverse_of: 'featured_image'
-    }
-  ]
 }
 
 RakuOrm.init(Media)
