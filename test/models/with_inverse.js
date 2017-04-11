@@ -1,5 +1,5 @@
 // test_models.js
-import RakuOrm from '../src/RakuOrm'
+import RakuOrm from '../../src/RakuOrm'
 
 class User extends RakuOrm { }
 
@@ -36,10 +36,29 @@ Post.schema = {
       method: 'approver',
       inverse_of: 'approved_articles'
     }
+  ],
+  has_one: [
+    { model: 'Media',
+      method: 'featured_image' 
+    }
   ]
 }
 
+class Media extends RakuOrm { }
+
+Media.schema = {
+  location: 'String',
+  attributes: 'String',
+  has_one: [
+    { model: 'Post',
+      method: 'post_featured',
+      inverse_of: 'featured_image'
+    }
+  ]
+}
+
+RakuOrm.init(Media)
 RakuOrm.init(Post)
 RakuOrm.init(User)
 
-export { User, Post }
+export { User, Post, Media }

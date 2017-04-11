@@ -2,7 +2,7 @@
 import { expect, assert } from 'chai'
 
 import RakuOrm from '../../src/RakuOrm'
-import { User, Post } from '../test_models'
+import { User, Post } from '../models/with_inverse'
 
 import Raku from 'raku'
 const raku = new Raku()

@@ -3,7 +3,7 @@
 import Raku from 'raku'
 import RakuOrm from '../../src/RakuOrm'
 import { expect, assert } from 'chai'
-import { User, Post } from '../test_models'
+import { User, Post } from '../models/with_inverse'
 
 const raku = new Raku()
 
