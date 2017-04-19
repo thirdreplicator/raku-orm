@@ -1,6 +1,6 @@
 # Raku-ORM
 
-A promise-based ORM for Riak in Node.js using the [raku](https://github.com/thirdreplicator/raku) package as the underlying Riak client.
+A promise-based ORM for Riak in Node.js using the [raku](https://github.com/thirdreplicator/raku) package as the underlying Riak client. The current version supports habtm and has-many/belongs-to, and has-one relationships with and without inverses.
 
 ## Features
 
@@ -12,7 +12,6 @@ A promise-based ORM for Riak in Node.js using the [raku](https://github.com/thir
 * saves each attribute separately to avoid accidental saving of large attributes (e.g. a article body).
 * delete updates references in related associations.
 
-The current version supports habtm and has-many/belongs-to relationships.
 
 ## USAGE (please see tests for more details)
 
