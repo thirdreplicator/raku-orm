@@ -4,7 +4,7 @@
   "description": "A basic ORM for Riak",
   "main": "dist/RakuOrm.js",
   "scripts": {
-    "test": "mocha --compilers js:babel-core/register --require babel-polyfill --recursive test/**/*_test.js",
+    "test": "mocha --compilers js:babel-core/register --require babel-polyfill --recursive test/**/*_test.js --recursive test/*/*/*_test.js",
     "watch": "npm run test -w",
     "prebuild": "rimraf dist",
     "build": "babel --out-dir dist src"

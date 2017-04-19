@@ -1,48 +1,48 @@
-// solo.js
+// without_inverse.js
 // Models without inverse relationships.
 
 import RakuOrm from '../../src/RakuOrm'
 
-class User extends RakuOrm { }
+class Person extends RakuOrm { }
+class Article extends RakuOrm { }
+class Picture extends RakuOrm { }
 
-User.schema = {
+Person.schema = {
 	first_name: 'String',
 	last_name: 'String',
 	username: 'String',
 	email: 'String',
 	password: 'String',
 	habtm: [
-			{ model: 'Post',
-				method: 'posts' }
+			{ model: 'Article',
+				method: 'articles' }
 		],
   has_many: [
-    { model: 'Post',
+    { model: 'Article',
       method: 'approved_articles'}
     ]
 }
 
-class Post extends RakuOrm { }
 
-Post.schema = {
+Article.schema = {
 	title: 'String',
 	body: 'String',
 	views: 'Integer',
   has_one: [
-    { model: 'Media',
+    { model: 'Picture',
       method: 'featured_image' 
     }
   ]
 }
 
-class Media extends RakuOrm { }
 
-Media.schema = {
+Picture.schema = {
   location: 'String',
   attributes: 'String',
 }
 
-RakuOrm.init(Media)
-RakuOrm.init(Post)
-RakuOrm.init(User)
+RakuOrm.init(Person)
+RakuOrm.init(Article)
+RakuOrm.init(Picture)
 
-export { User, Post, Media }
+export { Person, Article, Picture }

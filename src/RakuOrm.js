@@ -121,10 +121,20 @@ class RakuOrm {
     if (RakuOrm._inverse == undefined) { this._inverse = {} }
     if (RakuOrm._inverse[klass_name] == undefined) { this._inverse[klass_name] = {} }
     if (RakuOrm._inverse[klass_name][method_name] == undefined) { this._inverse[klass_name][method_name] = {} }
-    if (RakuOrm._inverse[klass_name_inverse] == undefined) { this._inverse[klass_name_inverse] = {} }
-    if (RakuOrm._inverse[klass_name_inverse][method_name_inverse] == undefined) { this._inverse[klass_name_inverse][method_name_inverse] = {} }
-    RakuOrm._inverse[klass_name][method_name] = {model: klass_name_inverse, method: method_name_inverse, type: type_name_inverse}
-    RakuOrm._inverse[klass_name_inverse][method_name_inverse] = {model: klass_name, method: method_name, type: type_name}
+    // Only overwrite it, if it doesn't exist yet.
+    if ( RakuOrm.keys().length == 0) {
+      if (RakuOrm._inverse[klass_name][method_name].model == undefined) { RakuOrm._inverse[klass_name][method_name].model = klass_name_inverse }
+      if (RakuOrm._inverse[klass_name][method_name].method == undefined) { RakuOrm._inverse[klass_name][method_name].method = method_name_inverse }
+      if (RakuOrm._inverse[klass_name][method_name].type == undefined) { RakuOrm._inverse[klass_name][method_name].type = type_name_inverse}
+    }
+
+    if (typeof method_name != 'undefined') {
+			if (RakuOrm._inverse[klass_name_inverse] == undefined) { this._inverse[klass_name_inverse] = {} }
+			if (RakuOrm._inverse[klass_name_inverse][method_name_inverse] == undefined) { this._inverse[klass_name_inverse][method_name_inverse] = {} }
+      if (RakuOrm._inverse[klass_name_inverse][method_name_inverse].model == undefined) {  RakuOrm._inverse[klass_name_inverse][method_name_inverse].model = klass_name }
+      if (RakuOrm._inverse[klass_name_inverse][method_name_inverse].method == undefined) { RakuOrm._inverse[klass_name_inverse][method_name_inverse].method = method_name }
+      if (RakuOrm._inverse[klass_name_inverse][method_name_inverse].type == undefined) {   RakuOrm._inverse[klass_name_inverse][method_name_inverse].type = type_name }
+		}
   }
 
   static inverse_of(klass_name, method_name) {
@@ -222,9 +232,13 @@ class RakuOrm {
 
   static inverse_key(klass_name, attr_name, id) {
     const inverse = RakuOrm.inverse_of(klass_name, attr_name)
-    if (!inverse) { throw 'No inverse found for (' + klass_name + ', ' + attr_name + ')' }
-		const type = inverse.type
-		const inverse_attr = inverse.method + this.id_postfix(type)
+    let inverse_attr, type
+    if (inverse && inverse.method) {
+			type = inverse.type
+			inverse_attr = inverse.method + this.id_postfix(type)
+    } else {
+      inverse_attr = klass_name + ':' + attr_name
+    }
 		return this.key(inverse.model, inverse_attr, id)
   }
 
@@ -253,6 +267,8 @@ class RakuOrm {
       return 'belongs_to'
     } else if (type == 'belongs_to') {
       return 'has_many'
+    } else if (type == 'has_one') {
+      return 'has_one'
     }
   }
 
@@ -362,7 +378,8 @@ class RakuOrm {
 					this.track(model_A, id_attr, rel_type)
        
           // Store inverse relationship.
-          if (rel.inverse_of) { RakuOrm.store_inverse_of(model_A_name, rel.method, this.inverse_type(rel_type), model_B_name, rel.inverse_of, this.inverse_type(rel_type)) }
+
+          RakuOrm.store_inverse_of(model_A_name, rel.method ? (' ' + rel.method).slice(1) : undefined, this.inverse_type(rel_type), model_B_name, rel.inverse_of ? (' ' + rel.inverse_of).slice(1) : undefined, this.inverse_type(rel_type))
 
           // define <RELATIONSHIP>'_id getter/setter.
           this.define_getter_setter(model_A.prototype, id_attr)
@@ -449,10 +466,12 @@ class RakuOrm {
     const klass = this.constructor.name
     if (current_fk == previous_fk) { return Promise.resolve(-1) }
 
-    const prev_inverse_key = RakuOrm.inverse_key(klass, id_attr, previous_fk)
-    const inverse_key = RakuOrm.inverse_key(klass, id_attr, current_fk)
-		await raku.del(prev_inverse_key)
+    if (previous_fk) {
+			const prev_inverse_key = RakuOrm.inverse_key(klass, id_attr, previous_fk)
+			await raku.del(prev_inverse_key)
+    }
 
+    const inverse_key = RakuOrm.inverse_key(klass, id_attr, current_fk)
     let promise1 = Promise.resolve(1)
     if (current_fk == null) {
       promise1 = raku.del(inverse_key)
