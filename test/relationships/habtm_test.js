@@ -87,7 +87,9 @@ describe('habtm relationship', () => {
 			expect(Post.observed_keys('User').has('posts_ids')).to.be.true
 		})
 
+    // Sometimes fails without the setTimeout delay.
 		it("deleted posts should be deleted from the user's list of posts_ids", () => {
+     
 			let user = new User()
 			user.first_name = 'Loader'
 			user.posts_ids = [542, 1001]
@@ -97,6 +99,7 @@ describe('habtm relationship', () => {
 			return raku.sdel('Post#542:User:posts_ids')
 				.then(() => user.save())
 				.then(() => post.delete())
+        .then(() => new Promise((resolve) => setTimeout(() => resolve(null), 1000)))
 				.then(() => {
 					 return User.load(user.id, 'posts_ids')
 				 })
