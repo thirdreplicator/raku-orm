@@ -109,13 +109,12 @@ let promise = Promise.all([post1.save(), post2.save()])
 
 ## TODO
 * add a getter/setter for holding loaded associations.
-* allow assignment by assigning the association's setter method.
-* has-one
-* refactor meta-data to store indexes in parent class
 * generalize management of double-indexes
+* make optimized batch update functions
 
 ## Notes:
-
+--------
+2017-04-22: all associations have been implemented and tested (has_many, belongs_to, has_one, habtm) with and without inverses. Meta data is now stored in parent class.
 2017-04-04: has_many and belongs_to is implemented.
             MAJOR CHANGE in API: to load associations, instead of "user.posts()", "user.load_posts()", this is to make room for an upcoming getter/setter which
             will allow us to store the results of loaded associations.  E.g. user.posts == [ User(1), User(2), ...etc. ]
