@@ -8,10 +8,10 @@ import { User, Post } from '../models/with_inverse'
 const raku = new Raku()
 
 describe('RakuOrm static methods', () => {
-	describe('RakuOrm.getClass()', () => {
+	describe('RakuOrm.get_class()', () => {
     it('should be able to get a reference to the actual class from a string.', () => {
-			expect(RakuOrm.getClass('User')).to.eql(User)
-			expect(RakuOrm.getClass('Post')).to.eql(Post)
+			expect(RakuOrm.get_class('User')).to.eql(User)
+			expect(RakuOrm.get_class('Post')).to.eql(Post)
     })
 	})
 

@@ -84,7 +84,7 @@ describe('habtm relationship', () => {
 		}) // it
 
 		it("Post needs to have a list of incoming foreign keys in User.", () => {
-			expect(Post.observed_keys('User').has('posts_ids')).to.be.true
+			expect(RakuOrm.dependent_keys('Post', 'User').indexOf('posts_ids')).not.to.eql(-1)
 		})
 
     // Sometimes fails without the setTimeout delay.

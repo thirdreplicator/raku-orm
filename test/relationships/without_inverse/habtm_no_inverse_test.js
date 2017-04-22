@@ -84,7 +84,7 @@ describe('habtm relationship WITHOUT INVERSE', () => {
 		}) // it
 
 		it("Article needs to have a list of incoming foreign keys in person.", () => {
-			expect(Article.observed_keys('Person').has('articles_ids')).to.be.true
+			expect(RakuOrm.dependent_keys('Article', 'Person').indexOf('articles_ids')).not.to.eql(-1)
 		})
 
 		it("deleted articles should be deleted from the person's list of articles_ids", () => {
