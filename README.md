@@ -2,6 +2,10 @@
 
 A promise-based ORM for Riak in Node.js using the [raku](https://github.com/thirdreplicator/raku) package as the underlying Riak client. The current version supports habtm and has-many/belongs-to, and has-one relationships with and without inverses.
 
+## Development status
+
+This repo is a hobby project. I am writing an append-only version of this client that will offer ACID properites via an in-memory caching server.
+
 ## Features
 
 * automatic integer id generation per class, stored and incremented as a CRDT counter
